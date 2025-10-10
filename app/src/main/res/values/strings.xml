@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">V-Get</string>
+    <string name="enter_facebook_url">請輸入 Facebook 影片網址</string>
+    <string name="download">下載</string>
+    <string name="downloading">下載中...</string>
+    <string name="download_complete">下載完成！</string>
+    <string name="download_failed">下載失敗</string>
+    <string name="invalid_url">無效的 Facebook 網址</string>
+    <string name="permission_required">需要儲存空間權限</string>
+    <string name="grant_permission">授予權限</string>
+    <string name="paste">貼上</string>
+    <string name="clear">清除</string>
+    <string name="status_ready">準備下載</string>
+    <string name="status_analyzing">正在分析影片...</string>
+    <string name="error_network">網路連線錯誤</string>
+    <string name="error_parse">無法解析影片網址</string>
+    <string name="video_saved">影片已儲存至：%1$s</string>
+</resources>
