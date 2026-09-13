@@ -1,257 +1,167 @@
 package com.vget.app
 
+import android.Manifest
+import android.app.DownloadManager
+import android.content.ActivityNotFoundException
 import android.content.ClipboardManager
-import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.text.format.Formatter
 import android.view.View
-import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isVisible
+import androidx.core.widget.doAfterTextChanged
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.google.android.material.chip.Chip
 import com.google.android.material.snackbar.Snackbar
+import com.vget.app.MainViewModel.Phase
 import com.vget.app.databinding.ActivityMainBinding
-import com.vget.app.network.VideoDownloader
-import com.vget.app.network.VideoExtractor
+import com.vget.app.network.FacebookUrl
+import com.vget.app.network.VideoInfo
 import com.vget.app.utils.PermissionHelper
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
-
     private lateinit var binding: ActivityMainBinding
-    private lateinit var videoExtractor: VideoExtractor
-    private lateinit var videoDownloader: VideoDownloader
-    private var isDownloading = false
+    private val model: MainViewModel by viewModels()
+    private var renderedVideo: VideoInfo? = null
+    private var pendingShare: String? = null
+    private val storagePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) model.download() else message(getString(R.string.permission_required))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        // 初始化
-        videoExtractor = VideoExtractor()
-        videoDownloader = VideoDownloader(this)
-
-        setupViews()
-        checkPermissions()
-    }
-
-    private fun setupViews() {
-        // 貼上按鈕
+        binding.urlEditText.setText(model.state.value.input)
+        binding.urlEditText.doAfterTextChanged { model.input(it?.toString().orEmpty()) }
         binding.pasteButton.setOnClickListener {
-            pasteFromClipboard()
+            val clipboard = getSystemService(ClipboardManager::class.java)
+            val clip = clipboard.primaryClip
+            val text = if (clip != null && clip.itemCount > 0) clip.getItemAt(0).coerceToText(this)?.toString() else null
+            if (text.isNullOrBlank()) message(getString(R.string.clipboard_empty))
+            else model.input(FacebookUrl.fromSharedText(text))
         }
-
-        // 下載按鈕
+        binding.clearButton.setOnClickListener { model.input("") }
+        binding.analyzeButton.setOnClickListener { model.analyze() }
         binding.downloadButton.setOnClickListener {
-            val url = binding.urlEditText.text.toString().trim()
-            if (url.isNotEmpty()) {
-                if (PermissionHelper.hasStoragePermission(this)) {
-                    startDownload(url)
-                } else {
-                    PermissionHelper.requestStoragePermission(this)
-                }
-            } else {
-                showError(getString(R.string.enter_facebook_url))
+            if (PermissionHelper.hasStoragePermission(this)) model.download()
+            else storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
+        binding.cancelButton.setOnClickListener { model.cancel() }
+        binding.openButton.setOnClickListener {
+            model.state.value.savedUri?.let { uri ->
+                open(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "video/mp4")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
             }
         }
-    }
-
-    private fun pasteFromClipboard() {
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clipData = clipboard.primaryClip
-        
-        if (clipData != null && clipData.itemCount > 0) {
-            val text = clipData.getItemAt(0).text.toString()
-            binding.urlEditText.setText(text)
-            Toast.makeText(this, "已貼上連結", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "剪貼簿是空的", Toast.LENGTH_SHORT).show()
+        binding.filesButton.setOnClickListener { open(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)) }
+        binding.qualityGroup.setOnCheckedStateChangeListener { group, ids ->
+            ids.firstOrNull()?.let { id -> model.select(group.findViewById<Chip>(id).tag as Int) }
         }
-    }
-
-    private fun checkPermissions() {
-        if (!PermissionHelper.hasStoragePermission(this)) {
-            showPermissionDialog()
-        }
-    }
-
-    private fun showPermissionDialog() {
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.permission_required))
-            .setMessage("此應用程式需要儲存空間權限來下載影片")
-            .setPositiveButton(getString(R.string.grant_permission)) { _, _ ->
-                PermissionHelper.requestStoragePermission(this)
-            }
-            .setNegativeButton("取消", null)
-            .show()
-    }
-
-    private fun startDownload(url: String) {
-        if (isDownloading) {
-            showError("正在下載中，請稍候")
-            return
-        }
-
-        isDownloading = true
-        setDownloadingState(true)
-        updateStatus(getString(R.string.status_analyzing))
-
+        if (savedInstanceState == null) receiveShare(intent)
         lifecycleScope.launch {
-            try {
-                // 步驟 1: 提取影片 URL
-                val result = withContext(Dispatchers.IO) {
-                    videoExtractor.extractVideoUrl(url)
-                }
-
-                result.onSuccess { videoInfo ->
-                    updateStatus("找到影片，開始下載...")
-                    downloadVideo(videoInfo.videoUrl)
-                }.onFailure { error ->
-                    val errorMessage = when {
-                        error.message?.contains("無效的 Facebook") == true -> 
-                            "請輸入正確的 Facebook 影片連結"
-                        error.message?.contains("無法找到影片") == true -> 
-                            "無法找到影片，請確認：\n• 影片為公開狀態\n• 連結正確\n• 不是直播或限時動態"
-                        error.message?.contains("timeout") == true -> 
-                            "連線逾時，請檢查網路連線"
-                        else -> 
-                            error.message ?: getString(R.string.error_parse)
-                    }
-                    showError(errorMessage)
-                    setDownloadingState(false)
-                    isDownloading = false
-                }
-
-            } catch (e: Exception) {
-                val errorMessage = when {
-                    e.message?.contains("Unable to resolve host") == true -> 
-                        "無法連線到 Facebook，請檢查網路"
-                    e.message?.contains("timeout") == true -> 
-                        "連線逾時，請稍後再試"
-                    else -> 
-                        e.message ?: getString(R.string.error_network)
-                }
-                showError(errorMessage)
-                setDownloadingState(false)
-                isDownloading = false
-            }
-        }
-    }
-
-    private fun downloadVideo(videoUrl: String) {
-        android.util.Log.e("MainActivity", "=== 準備下載影片 ===")
-        android.util.Log.e("MainActivity", "影片 URL 長度: ${videoUrl.length}")
-        
-        lifecycleScope.launch(Dispatchers.Main) {
-            try {
-                android.util.Log.e("MainActivity", "開始收集下載進度...")
-                
-                videoDownloader.downloadVideo(videoUrl)
-                    .collect { progress ->
-                        android.util.Log.e("MainActivity", "收到進度更新: ${progress.javaClass.simpleName}")
-
-                        when (progress) {
-                            is VideoDownloader.DownloadProgress.Starting -> {
-                                android.util.Log.e("MainActivity", "下載開始")
-                                updateStatus(getString(R.string.downloading))
-                                updateProgress(0)
-                            }
-                            is VideoDownloader.DownloadProgress.Progress -> {
-                                android.util.Log.e("MainActivity", "進度: ${progress.percentage}%")
-                                updateProgress(progress.percentage)
-                                updateProgressText(progress)
-                            }
-                            is VideoDownloader.DownloadProgress.Completed -> {
-                                android.util.Log.e("MainActivity", "下載完成: ${progress.filePath}")
-                                updateStatus(getString(R.string.download_complete))
-                                updateProgress(100)
-                                showSuccess(getString(R.string.video_saved, progress.filePath))
-                                setDownloadingState(false)
-                                isDownloading = false
-                            }
-                            is VideoDownloader.DownloadProgress.Error -> {
-                                android.util.Log.e("MainActivity", "下載錯誤: ${progress.message}")
-                                showError(progress.message)
-                                setDownloadingState(false)
-                                isDownloading = false
-                            }
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                model.state.collect { state ->
+                    render(state)
+                    if (state.phase != Phase.RESTORING) {
+                        pendingShare?.let { text ->
+                            pendingShare = null
+                            if (state.busy) message(getString(R.string.finish_current)) else model.input(text)
                         }
                     }
-                android.util.Log.e("MainActivity", "=== Flow 收集完成 ===")
-            } catch (e: Exception) {
-                android.util.Log.e("MainActivity", "=== 下載流程發生異常 ===")
-                android.util.Log.e("MainActivity", "異常類型: ${e.javaClass.name}")
-                android.util.Log.e("MainActivity", "異常訊息: ${e.message}")
-                android.util.Log.e("MainActivity", "Stack trace: ${e.stackTraceToString()}")
-                e.printStackTrace()
-
-                showError("下載失敗: ${e.message}")
-                setDownloadingState(false)
-                isDownloading = false
-            }
-        }
-    }
-
-    private fun setDownloadingState(downloading: Boolean) {
-        binding.downloadButton.isEnabled = !downloading
-        binding.urlEditText.isEnabled = !downloading
-        binding.pasteButton.isEnabled = !downloading
-        binding.progressCard.visibility = if (downloading) View.VISIBLE else View.GONE
-    }
-
-    private fun updateStatus(status: String) {
-        binding.statusText.text = status
-    }
-
-    private fun updateProgress(percentage: Int) {
-        binding.progressBar.progress = percentage
-        binding.progressText.text = "$percentage%"
-    }
-
-    private fun updateProgressText(progress: VideoDownloader.DownloadProgress.Progress) {
-        val downloaded = formatFileSize(progress.downloadedBytes)
-        val total = formatFileSize(progress.totalBytes)
-        binding.progressText.text = "${progress.percentage}% ($downloaded / $total)"
-    }
-
-    private fun formatFileSize(bytes: Long): String {
-        return when {
-            bytes < 1024 -> "$bytes B"
-            bytes < 1024 * 1024 -> String.format("%.1f KB", bytes / 1024.0)
-            else -> String.format("%.1f MB", bytes / (1024.0 * 1024.0))
-        }
-    }
-
-    private fun showError(message: String) {
-        Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG)
-            .setBackgroundTint(getColor(R.color.error))
-            .show()
-    }
-
-    private fun showSuccess(message: String) {
-        Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG)
-            .setBackgroundTint(getColor(R.color.success))
-            .show()
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        
-        when (requestCode) {
-            PermissionHelper.STORAGE_PERMISSION_CODE -> {
-                if (PermissionHelper.isPermissionGranted(grantResults)) {
-                    Toast.makeText(this, "權限已授予", Toast.LENGTH_SHORT).show()
-                } else {
-                    showError("需要儲存空間權限才能下載影片")
                 }
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        receiveShare(intent)
+    }
+
+    private fun receiveShare(intent: Intent) {
+        if (intent.action != Intent.ACTION_SEND || intent.type != "text/plain") return
+        val text = intent.getStringExtra(Intent.EXTRA_TEXT)?.let(FacebookUrl::fromSharedText) ?: return
+        if (model.state.value.phase == Phase.RESTORING) pendingShare = text
+        else if (model.state.value.busy) message(getString(R.string.finish_current)) else model.input(text)
+    }
+
+    private fun render(state: MainViewModel.UiState) = with(binding) {
+        if (urlEditText.text.toString() != state.input) urlEditText.setText(state.input)
+        urlEditText.isEnabled = !state.busy
+        pasteButton.isEnabled = !state.busy
+        clearButton.isEnabled = !state.busy && state.input.isNotEmpty()
+        analyzeButton.isEnabled = !state.busy && state.input.isNotBlank()
+        analyzeButton.setText(if (state.phase == Phase.ANALYZING) R.string.analyzing else R.string.analyze)
+        videoCard.isVisible = state.video != null
+        if (renderedVideo != state.video) {
+            renderedVideo = state.video
+            qualityGroup.removeAllViews()
+            state.video?.let { video ->
+                videoTitle.text = video.title
+                video.formats.forEachIndexed { index, format ->
+                    qualityGroup.addView(Chip(this@MainActivity).apply {
+                        id = View.generateViewId()
+                        tag = index
+                        text = when (format.quality) {
+                            "HD" -> getString(R.string.quality_hd)
+                            "SD" -> getString(R.string.quality_sd)
+                            else -> "MP4"
+                        }
+                        isCheckable = true
+                        isChecked = index == state.selected
+                        minHeight = (48 * resources.displayMetrics.density).toInt()
+                    })
+                }
+            }
+        }
+        for (i in 0 until qualityGroup.childCount) {
+            (qualityGroup.getChildAt(i) as Chip).apply { isEnabled = !state.busy; isChecked = i == state.selected }
+        }
+        downloadButton.isEnabled = !state.busy
+        statusCard.isVisible = state.phase !in listOf(Phase.IDLE, Phase.READY)
+        progressBar.isVisible = state.busy
+        val determinate = state.phase == Phase.DOWNLOADING && state.total > 0
+        progressBar.isIndeterminate = !determinate
+        if (determinate) progressBar.progress = (state.bytes * 100.0 / state.total).toInt().coerceIn(0, 100)
+        statusText.text = when (state.phase) {
+            Phase.RESTORING -> getString(R.string.restoring)
+            Phase.ANALYZING -> getString(R.string.analyzing)
+            Phase.DOWNLOADING -> state.message.ifBlank { getString(R.string.downloading) }
+            Phase.CANCELLING -> getString(R.string.cancelling)
+            Phase.COMPLETE -> getString(R.string.download_complete)
+            Phase.ERROR -> getString(R.string.download_failed)
+            else -> ""
+        }
+        progressText.text = when (state.phase) {
+            Phase.DOWNLOADING -> {
+                val bytes = Formatter.formatShortFileSize(this@MainActivity, state.bytes.coerceAtLeast(0))
+                if (determinate) getString(R.string.progress_known, progressBar.progress, bytes,
+                    Formatter.formatShortFileSize(this@MainActivity, state.total))
+                else getString(R.string.progress_unknown, bytes)
+            }
+            Phase.COMPLETE -> getString(R.string.saved_location, state.fileName)
+            Phase.ERROR -> state.message
+            Phase.ANALYZING -> getString(R.string.analyzing_detail)
+            else -> ""
+        }
+        progressText.isVisible = progressText.text.isNotEmpty()
+        cancelButton.isVisible = state.phase == Phase.ANALYZING || state.phase == Phase.DOWNLOADING
+        openButton.isVisible = state.savedUri != null && state.phase == Phase.COMPLETE
+    }
+
+    private fun open(intent: Intent) {
+        try { startActivity(intent) }
+        catch (_: ActivityNotFoundException) { message(getString(R.string.no_viewer)) }
+        catch (_: SecurityException) { message(getString(R.string.file_unavailable)) }
+    }
+
+    private fun message(text: String) { Snackbar.make(binding.root, text, Snackbar.LENGTH_LONG).show() }
 }
