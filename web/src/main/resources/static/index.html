@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#245ce7">
+  <meta name="description" content="ClipPocket：手機版 Facebook 影片下載工具。貼上公開影片連結、選擇畫質，預覽後儲存到你的裝置。">
+  <meta name="referrer" content="no-referrer">
+  <title>ClipPocket｜Facebook 影片下載</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23245ce7'/%3E%3Cpath d='M16 6v13m-5-5 5 5 5-5M7 21v4h18v-4' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./config.js"></script>
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="m10 13 4-4m-5 7-2 2a4.2 4.2 0 0 1-6-6l4-4a4.2 4.2 0 0 1 6 0m2-1 2-2a4.2 4.2 0 0 1 6 6l-4 4a4.2 4.2 0 0 1-6 0" transform="translate(1 0)"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1.5"/><path d="M8 4H5v17h14V4h-3"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.6 1.4c-1 1.1-2.2 1.1-2.2 3M12 17h.01"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8.5 11.5 2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m9 5 11 7-11 7V5Z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 3h7v7m0-7L10 14M10 5H4v15h15v-6"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m10 9 5 3-5 3V9Z"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <header class="app-header">
+      <a class="brand" href="./" aria-label="ClipPocket 主畫面"><span class="brand-mark"><svg class="icon"><use href="#i-download"/></svg></span><span>ClipPocket<span class="brand-caption">影片隨身，輕鬆收藏</span></span></a>
+      <button class="icon-button help-trigger" type="button" aria-label="使用說明"><svg class="icon"><use href="#i-help"/></svg></button>
+    </header>
+    <main id="main-content">
+      <section class="page-intro" aria-labelledby="page-title">
+        <div class="eyebrow"><span class="facebook-mark" aria-hidden="true">f</span> FACEBOOK VIDEO <span id="service-badge" class="frontend-badge">影片下載</span></div>
+        <h1 id="page-title">Facebook 影片下載<span class="title-period">.</span></h1>
+        <p>貼上連結，把喜歡的影片收進口袋。</p>
+      </section>
+      <ol class="steps" aria-label="下載步驟">
+        <li class="current" data-step="1" aria-current="step"><span class="step-number">1</span><span>貼上連結</span></li>
+        <li data-step="2"><span class="step-number">2</span><span>選擇畫質</span></li>
+        <li data-step="3"><span class="step-number">3</span><span>儲存影片</span></li>
+      </ol>
+      <section class="source-card" aria-label="影片來源">
+        <div class="source-heading"><span class="source-heading-icon"><svg class="icon"><use href="#i-link"/></svg></span><div><h2>從一個連結開始</h2><p>貼文影片、Reels、分享短連結</p></div></div>
+        <form id="source-form" novalidate>
+          <div class="field-heading"><label for="source-input">Facebook 影片連結</label><button id="clear-input" class="text-button" type="button" hidden>清除</button></div>
+          <div class="input-box"><textarea id="source-input" name="url" rows="3" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="在這裡貼上影片連結…
+https://www.facebook.com/…" aria-describedby="source-hint input-error" maxlength="2048"></textarea><div class="input-toolbar"><span class="input-caption"><svg class="icon"><use href="#i-link"/></svg>facebook.com · fb.watch</span><button id="paste-button" class="paste-button" type="button"><svg class="icon"><use href="#i-clipboard"/></svg>貼上</button></div></div>
+          <p id="input-error" class="field-error" role="alert" hidden></p>
+          <p id="source-hint" class="source-hint">在 Facebook 點選「分享」→「複製連結」，再貼到這裡。</p>
+          <button id="analyze-button" class="primary-button" type="submit"><svg class="icon"><use href="#i-link"/></svg><span id="analyze-label">解析影片</span><svg class="icon button-arrow"><use href="#i-arrow"/></svg></button>
+          <button id="cancel-analysis" class="inline-link cancel-analysis" type="button" hidden>取消解析</button>
+        </form>
+        <div class="privacy-line"><svg class="icon"><use href="#i-shield"/></svg><span>不需提供 Facebook 帳號密碼</span></div>
+      </section>
+      <aside id="preview-notice" class="browser-note" hidden><span class="note-icon"><svg class="icon"><use href="#i-info"/></svg></span><div><h2>目前為介面預覽</h2><p>此預覽尚未連接下載服務。完整專案啟動後，即可解析 Facebook 影片。</p><button id="try-demo" class="inline-link" type="button">體驗操作流程<svg class="icon"><use href="#i-arrow"/></svg></button></div></aside>
+      <section id="result-section" class="result-card" aria-labelledby="result-title" tabindex="-1" hidden>
+        <div class="section-heading"><span class="section-overline">YOUR VIDEO</span><span id="result-badge" class="status-badge">已取得影片資訊</span></div>
+        <h2 id="result-title">預覽與下載</h2><p id="result-description" class="muted"></p>
+        <div class="video-wrap"><video id="video-preview" controls playsinline preload="none" hidden></video><div id="preview-placeholder" class="preview-placeholder"><span><svg class="icon"><use href="#i-video"/></svg></span><p id="preview-title">你的影片，就在這裡</p><small id="preview-subtitle">選擇畫質，準備好後即可播放</small></div></div>
+        <fieldset id="quality-fieldset" class="quality-fieldset"><legend>選擇下載畫質</legend><div id="source-options" class="source-options"></div></fieldset>
+        <p id="quality-note" class="media-info">僅列出影片實際提供的畫質</p>
+        <div id="transfer-panel" class="transfer-panel" hidden><div class="transfer-heading"><span id="transfer-text" role="status">正在準備影片…</span><button id="cancel-download" class="text-button" type="button">取消</button></div><progress id="download-progress" aria-label="影片準備進度"></progress></div>
+        <button id="prepare-button" class="primary-button" type="button"><svg class="icon"><use href="#i-download"/></svg><span id="prepare-label">準備下載</span></button>
+        <div id="ready-panel" hidden><a id="save-video" class="primary-button"><svg class="icon"><use href="#i-download"/></svg>儲存影片</a><p class="download-note ready-note">可先播放確認內容。影片暫存 30 分鐘，點選儲存後請至瀏覽器下載項目查看。</p></div>
+        <p id="download-status" class="download-status" role="status" hidden></p>
+        <a id="facebook-original" class="inline-link open-media" target="_blank" rel="noopener noreferrer">開啟 Facebook 原影片<svg class="icon"><use href="#i-external"/></svg></a>
+      </section>
+      <section class="quick-guide" aria-labelledby="guide-title">
+        <div class="section-heading"><h2 id="guide-title">三步驟，影片帶著走</h2><span class="small-label">HOW IT WORKS</span></div>
+        <div class="guide-row"><span class="guide-icon"><svg class="icon"><use href="#i-clipboard"/></svg></span><div><h3>複製與貼上</h3><p>從 Facebook 分享選單複製影片連結。</p></div><span class="guide-index">01</span></div>
+        <div class="guide-row"><span class="guide-icon"><svg class="icon"><use href="#i-video"/></svg></span><div><h3>選擇適合的畫質</h3><p>依影片提供的選項，挑選清晰度。</p></div><span class="guide-index">02</span></div>
+        <div class="guide-row"><span class="guide-icon"><svg class="icon"><use href="#i-download"/></svg></span><div><h3>預覽並儲存</h3><p>影片準備好後，一鍵存到你的裝置。</p></div><span class="guide-index">03</span></div>
+      </section>
+      <div class="support-line"><svg class="icon"><use href="#i-info"/></svg><span>支援可公開讀取的影片，私人或需登入內容無法下載。</span></div>
+      <footer class="app-footer"><span class="footer-brand">ClipPocket</span><button class="text-button help-trigger" type="button">使用說明<svg class="icon"><use href="#i-arrow"/></svg></button></footer>
+    </main>
+  </div>
+  <dialog id="help-dialog" aria-labelledby="help-title">
+    <div class="dialog-top"><span class="section-overline">A LITTLE HELP</span><button id="close-help" class="icon-button" type="button" aria-label="關閉使用說明"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <h2 id="help-title">把影片帶走，其實很簡單。</h2><p class="dialog-lead">使用公開影片的分享連結即可開始，不需要提供 Facebook 帳密。</p>
+    <details open><summary>如何取得影片連結？<svg class="icon"><use href="#i-chevron"/></svg></summary><p>在 Facebook 開啟影片或 Reels，點選「分享」或「⋯」，選擇「複製連結」，回到此頁貼上，再點選「解析影片」。</p></details>
+    <details><summary>哪些影片無法下載？<svg class="icon"><use href="#i-chevron"/></svg></summary><p>私人影片、需登入才能觀看的影片、直播中或受地區限制的內容可能無法處理。公開影片仍可能被 Facebook 的存取限制擋下；本工具不會繞過登入或存取權限。請只下載你有權儲存的內容。</p></details>
+    <details><summary>畫質與格式可以選擇嗎？<svg class="icon"><use href="#i-chevron"/></svg></summary><p>選項來自影片實際提供的格式。本版只列出含聲音的 MP4，或可合併成 MP4 的影像與音訊；不會將低畫質升頻。檔案需準備完成才能預覽與儲存。</p></details>
+    <details><summary>手機下載後，影片在哪裡？<svg class="icon"><use href="#i-chevron"/></svg></summary><p>Android 通常可在瀏覽器的「下載項目」或檔案管理中找到；iPhone 可在「檔案」App 的下載項目查看。若只開啟了影片播放器，可使用瀏覽器提供的分享或儲存功能。</p></details>
+    <details><summary>準備影片需要多久？<svg class="icon"><use href="#i-chevron"/></svg></summary><p>取決於影片長度、大小與 Facebook 的回應速度。你可以隨時取消。每段影片最多 30 分鐘、完成檔最多 250 MB；檔案準備好後保留 30 分鐘，過期後需重新解析。</p></details>
+    <div class="help-footnote">ClipPocket 是獨立工具，與 Meta／Facebook 無隸屬關係。</div>
+  </dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <noscript><div class="noscript">請啟用 JavaScript，以使用影片解析與下載功能。</div></noscript>
+</body>
+</html>

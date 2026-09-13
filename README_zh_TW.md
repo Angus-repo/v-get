@@ -2,6 +2,17 @@
 
 一個簡單易用的 Android 應用程式，專門用於下載 Facebook 影片（包含留言中的影片）。
 
+## 網頁版（Spring Boot）
+
+儲存庫另提供 [位於 `web/` 的 ClipPocket 網頁版](web/README.md)，以手機版面搭配 Java 17／Spring Boot 後端，支援 Facebook 影片解析、畫質選擇、背景下載、預覽及儲存。Android 應用程式位於 `app/`。
+
+```bash
+cd web
+docker compose up --build -d
+```
+
+啟動後開啟 <http://localhost:8080>。手機區域網路連線、API 與驗證限制，請參閱[網頁版操作說明](web/README.md)。網頁版建置不需要 Android Studio 或 Android SDK。
+
 ## 功能特色
 
 - ✨ 簡潔直觀的使用者介面

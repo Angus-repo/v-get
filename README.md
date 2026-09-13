@@ -4,6 +4,17 @@ V-Get is an easy-to-use Android application built for downloading Facebook video
 
 > Looking for the Traditional Chinese guide? Check out [README_zh_TW.md](README_zh_TW.md).
 
+## Web edition (Spring Boot)
+
+The repository also includes [ClipPocket in `web/`](web/README.md), a mobile web interface with a Java 17 / Spring Boot backend for Facebook video inspection, quality selection, background downloads, playback and saving. The Android application remains in `app/`.
+
+```bash
+cd web
+docker compose up --build -d
+```
+
+Open <http://localhost:8080>. See the [web edition guide](web/README.md) for phone access on a trusted LAN, API documentation and validation limitations. Building the web edition does not require Android Studio or the Android SDK.
+
 ## Features
 - ✨ Clean and intuitive user interface
 - 📱 Supports downloading regular Facebook videos and comment videos
