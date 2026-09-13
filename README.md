@@ -1,182 +1,96 @@
-# V-Get - Facebook Video Downloader
+# V-Get — Facebook Video Downloader for Android
 
-V-Get is an easy-to-use Android application built for downloading Facebook videos, including clips shared inside comments.
+V-Get is a native Kotlin Android app. Paste a public Facebook video link, choose an available quality, and save it on your phone. All parsing runs on the device; no server, API key, web module, or login is required.
 
-> Looking for the Traditional Chinese guide? Check out [README_zh_TW.md](README_zh_TW.md).
+[繁體中文使用說明](README_zh_TW.md)
 
 ## Features
-- ✨ Clean and intuitive user interface
-- 📱 Supports downloading regular Facebook videos and comment videos
-- 📊 Real-time download progress updates
-- 💾 Automatically saves to the `Downloads/V-Get` folder
-- 🔐 Handles runtime permissions for you
-- 🌐 Works with multiple Facebook URL formats
 
-## Requirements
+- Scrollable phone interface with large touch targets and light/dark themes.
+- Paste a link or share text directly from Facebook to V-Get.
+- Inspect the video title and choose the available HD/SD progressive MP4 stream. An Open Graph fallback is labeled MP4 without assuming its quality.
+- Android DownloadManager handles background transfers, retries, and completion notifications.
+- View progress, cancel a transfer, and open the saved video with an installed player.
+- The latest system download ID is stored locally so reopening the app restores its status. This is not a full download history.
+- Files are saved in `Download/V-Get/` and can be found using **My downloads**.
 
-- Android 7.0 (API Level 24) or higher
-- Internet access
-- Storage permission (varies by Android version)
+## Usage
 
-## How It Works
+1. Copy the public video's own link, or select **Share → V-Get**.
+2. Tap **貼上連結**, then **解析影片**.
+3. Select one of the available qualities and tap **下載到手機**.
+4. After completion, tap **播放影片** or **我的下載**.
 
-1. **Copy the video link**
-   - Locate the target video in the Facebook app or on the web
-   - Tap *Share* and choose *Copy link*
+Sharing fills the input; downloading starts only after you choose to download. When another transfer is active, finish or cancel it before sharing a new link.
 
-2. **Paste the link**
-   - Open the V-Get app
-   - Tap *Paste* to auto-fill the copied URL, or enter it manually
+## Supported links and limitations
 
-3. **Download the video**
-   - Hit *Download*
-   - The app analyzes the link and shows progress updates
-   - Receive a completion message with the saved location
+Recognized page hosts include `facebook.com`, its standard mobile/web hosts, `fb.com`, and `fb.watch`. Supported paths include `/watch/?v=…`, `/reel/…`, and `/…/videos/…`; short/share links must resolve to an accessible public page.
 
-4. **Watch your video**
-   - Files are saved under `Downloads/V-Get/`
-   - Open with any media player you prefer
+Only publicly accessible pages that expose progressive video URLs can be downloaded. Private/login-required videos, live streams, Stories, and DASH/HLS or separate video/audio tracks are unsupported. No cookies, account credentials, backend extractor, or external command-line programs are used. For videos in comments, copy the video's own link: comment-thread URLs are rejected to avoid downloading the parent post.
 
-## Supported URL Formats
+Facebook can change page structure or restrict access by region/network. Public visibility alone does not guarantee extraction. The parser matches a video ID when available and fails on ambiguous results instead of selecting a recommendation. Expired download URLs require analyzing the link again.
 
-- `https://www.facebook.com/watch/?v=xxxxx`
-- `https://www.facebook.com/username/videos/xxxxx`
-- `https://fb.watch/xxxxx`
-- `https://m.facebook.com/...`
-- Video links embedded in Facebook comments
+## Build and run
 
-## Project Structure
+- Android 7.0+ (API 24+).
+- JDK **17**, Android SDK **34**, and Android Studio compatible with AGP 8.1.
+- The repository includes a Gradle **8.5** wrapper. No Spring Boot, Node.js, Python, or FFmpeg runtime is required.
 
-```
-app/
-├── src/main/
-│   ├── java/com/vget/app/
-│   │   ├── MainActivity.kt              # Main activity
-│   │   ├── network/
-│   │   │   ├── VideoExtractor.kt        # Video URL extractor
-│   │   │   └── VideoDownloader.kt       # Download manager
-│   │   └── utils/
-│   │       └── PermissionHelper.kt      # Permission helper
-│   ├── res/
-│   │   ├── layout/
-│   │   │   └── activity_main.xml        # Primary layout
-│   │   ├── values/
-│   │   │   ├── strings.xml              # String resources
-│   │   │   ├── colors.xml               # Color palette
-│   │   │   └── themes.xml               # Theme definitions
-│   │   └── xml/
-│   │       ├── backup_rules.xml
-│   │       └── data_extraction_rules.xml
-│   └── AndroidManifest.xml              # App configuration
-├── build.gradle                          # Module build script
-└── proguard-rules.pro                    # ProGuard rules
+```bash
+git clone https://github.com/Angus-repo/v-get.git
+cd v-get
+./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+./gradlew :app:installDebug
 ```
 
-## Development Setup
+Set `ANDROID_HOME`, or configure `sdk.dir` in your untracked `local.properties`. The debug APK is generated at `app/build/outputs/apk/debug/app-debug.apk`.
 
-### Prerequisites
+## Architecture
 
-- Android Studio Arctic Fox or newer
-- JDK 8+
-- Android SDK API Level 34
+| Component | Responsibility |
+| --- | --- |
+| `MainActivity` / XML views | Native phone interface, clipboard, sharing, permission prompt, player intents |
+| `MainViewModel` | UI state across rotation, coroutine cancellation, restore the latest system download |
+| `FacebookUrl` | Parse and validate page/CDN hosts; preserve signed query parameters |
+| `FacebookPageParser` | Match target video IDs, decode JSON/HTML, return actual progressive formats |
+| `VideoExtractor` | Cancellable on-device OkHttp requests, bounded HTML, validated redirects |
+| `VideoDownloader` | Android DownloadManager requests, progress, cancellation and safe file names |
 
-### Build Steps
+Dependencies: AndroidX, Material Components, Kotlin coroutines, OkHttp, Gson and jsoup. There is a single `:app` module.
 
-1. **Clone the project**
-   ```bash
-   git clone https://github.com/yourusername/v-get.git
-   cd v-get
-   ```
+## Permissions
 
-2. **Open in Android Studio**
-   - Import the project
-   - Wait for Gradle sync to finish
+- `INTERNET`: retrieve public pages and download videos.
+- `WRITE_EXTERNAL_STORAGE`: requested only when starting a download on Android 7–9 (API 24–28).
+- Android 10+ uses the system download service without broad media/storage read permissions. The app never asks to read the user's video library.
 
-3. **Build the app**
-   ```bash
-   ./gradlew build
-   ```
+Android API references: [DownloadManager](https://developer.android.com/reference/android/app/DownloadManager), [public download destinations](https://developer.android.com/reference/android/app/DownloadManager.Request#setDestinationInExternalPublicDir(java.lang.String,%20java.lang.String)).
 
-4. **Install on a device or emulator**
-   ```bash
-   ./gradlew installDebug
-   ```
+## Verification
 
-## Tech Stack
+Unit tests cover supported/rejected URLs, signed query preservation, selecting the requested video, nested metadata, legacy fields, ambiguous results, unsupported streams, safe filenames, and share redirects. The HTTP regression test checks that navigation headers are sent on both the share and target requests: omitting them caused HTTP 400 for a public share link. No login or browser cookies are used.
 
-- **Kotlin** – Primary language
-- **Material Design Components** – UI toolkit
-- **OkHttp** – HTTP client
-- **Kotlin Coroutines** – Asynchronous programming
-- **ViewBinding** – Type-safe view access
-- **AndroidX Libraries** – Jetpack components
+By default, the live test is skipped and all other fixtures are synthetic. To explicitly verify a public link and read the MP4 header from each returned quality:
 
-## Permission Usage
+```bash
+./gradlew :app:testDebugUnitTest -PvgetLiveUrl="https://www.facebook.com/share/v/YOUR_LINK/"
+```
 
-Depending on the Android version, the app may request:
+This opt-in check makes real network requests; it does not exercise Android DownloadManager or an installed media player. Version 1.0.1 (version code 2) includes the share-link HTTP 400 fix.
 
-- `INTERNET` – Required for downloading videos
-- `READ_EXTERNAL_STORAGE` (Android 10 and below)
-- `WRITE_EXTERNAL_STORAGE` (Android 9 and below)
-- `READ_MEDIA_VIDEO` (Android 13+)
+Device checks before release:
 
-## Important Notes
+- On API 28, allow/deny the storage prompt; on API 29+ confirm no storage/media prompt appears.
+- Share a public video, choose each available quality, and check saved audio/video playback.
+- Rotate, switch apps, and reopen during a download; progress should reconnect to the system task.
+- Cancel a transfer and confirm its partial file is removed; a previous completed file must remain.
+- Try a restricted link, an expired URL, an offline connection, and insufficient storage.
 
-⚠️ **Please remember:**
+A build/unit-test pass does not replace live Facebook and physical-device verification. The current target SDK remains 34; review distribution requirements before a store release.
 
-1. Download videos only when you have the right to do so
-2. Respect copyright and use downloads for personal purposes
-3. Avoid downloading copyrighted material
-4. Private or restricted videos might not be accessible
-5. Facebook platform changes can break functionality without warning
+## License and usage
 
-## Known Limitations
+This project is for learning and personal use only. Commercial use is not permitted. Download only videos you own or have permission to save, and comply with applicable laws and Facebook's terms of service. The developers are not liable for misuse.
 
-- Some live streams cannot be downloaded
-- Private-account videos require authentication (not supported)
-- Facebook Stories are not currently supported
-
-## Roadmap
-
-- [ ] Batch downloads
-- [ ] Quality selection (HD / SD)
-- [ ] Video preview before download
-- [ ] Instagram video support
-- [ ] Download history
-- [ ] Dark mode enhancements
-
-## Troubleshooting
-
-### Download failed
-
-1. Check your network connection
-2. Verify the URL format
-3. Make sure storage permissions are granted
-4. Copy the link again and retry
-
-### Cannot find the video
-
-- Ensure the video is public
-- Be aware of regional restrictions
-- Open the link in a browser to confirm availability
-
-### Permission issues
-
-- Go to *Settings > Apps > V-Get > Permissions*
-- Enable the required storage/media permissions manually
-
-## License
-
-This project is for learning and personal use only. Commercial use is not permitted.
-
-## Disclaimer
-
-V-Get is provided for educational and research purposes. You are responsible for complying with local laws and Facebook's terms of service. The developers are not liable for any misuse.
-
-## Contact
-
-Open an issue or submit a pull request if you have questions or suggestions.
-
----
-
-**Note:** This project is not affiliated with or endorsed by Facebook.
+V-Get is not affiliated with or endorsed by Facebook. Questions and suggestions are welcome through Issues or Pull Requests.
