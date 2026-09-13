@@ -69,7 +69,15 @@ API 依據：[DownloadManager](https://developer.android.com/reference/android/a
 
 ## 驗證與發佈前檢查
 
-單元測試涵蓋網址與主機驗證、簽章參數保留、指定影片選取、巢狀／舊版資料、模糊結果、非支援串流與安全檔名。測試使用合成資料，不依賴 Facebook 網路服務。
+單元測試涵蓋網址與主機驗證、簽章參數保留、指定影片選取、巢狀／舊版資料、模糊結果、非支援串流、安全檔名與分享連結重新導向。HTTP 回歸測試確認分享網址及影片頁請求都包含導覽標頭；缺少這些標頭曾導致公開分享連結回傳 HTTP 400。App 不使用登入或瀏覽器 Cookie。
+
+預設會跳過實際連線測試，其餘測試使用合成資料。若要指定公開連結，驗證解析結果與每個畫質的 MP4 檔頭，可執行：
+
+```bash
+./gradlew :app:testDebugUnitTest -PvgetLiveUrl="https://www.facebook.com/share/v/你的連結/"
+```
+
+這項測試會實際連線，但不涵蓋 Android 系統下載管理員與手機播放器。1.0.1 版（version code 2）包含分享連結 HTTP 400 的修正。
 
 發佈前請在裝置確認：
 

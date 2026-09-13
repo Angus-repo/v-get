@@ -13,12 +13,14 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /** Resolves public pages on the device, without login cookies or a parsing service. */
-class VideoExtractor {
-    private val client = OkHttpClient.Builder()
+class VideoExtractor internal constructor(private val client: OkHttpClient) {
+    constructor() : this(OkHttpClient.Builder()
         .followRedirects(false)
         .followSslRedirects(false)
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
         .callTimeout(45, TimeUnit.SECONDS)
-        .build()
+        .build())
 
     suspend fun extractVideo(url: String): VideoInfo {
         var current = FacebookUrl.parse(url)
@@ -41,6 +43,12 @@ class VideoExtractor {
             .header("User-Agent", USER_AGENT)
             .header("Accept", "text/html,application/xhtml+xml")
             .header("Accept-Language", "zh-TW,zh;q=0.9,en;q=0.7")
+            // Facebook share/reel pages return HTTP 400 for this UA without
+            // navigation metadata, even when the same public URL works in a browser.
+            .header("Sec-Fetch-Dest", "document")
+            .header("Sec-Fetch-Mode", "navigate")
+            .header("Sec-Fetch-Site", "none")
+            .header("Upgrade-Insecure-Requests", "1")
             .build())
         continuation.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {

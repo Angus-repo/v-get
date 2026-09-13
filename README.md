@@ -69,7 +69,15 @@ Android API references: [DownloadManager](https://developer.android.com/referenc
 
 ## Verification
 
-Unit tests cover supported/rejected URLs, signed query preservation, selecting the requested video, nested metadata, legacy fields, ambiguous results, unsupported streams, and safe filenames. Fixtures are synthetic and do not depend on Facebook availability.
+Unit tests cover supported/rejected URLs, signed query preservation, selecting the requested video, nested metadata, legacy fields, ambiguous results, unsupported streams, safe filenames, and share redirects. The HTTP regression test checks that navigation headers are sent on both the share and target requests: omitting them caused HTTP 400 for a public share link. No login or browser cookies are used.
+
+By default, the live test is skipped and all other fixtures are synthetic. To explicitly verify a public link and read the MP4 header from each returned quality:
+
+```bash
+./gradlew :app:testDebugUnitTest -PvgetLiveUrl="https://www.facebook.com/share/v/YOUR_LINK/"
+```
+
+This opt-in check makes real network requests; it does not exercise Android DownloadManager or an installed media player. Version 1.0.1 (version code 2) includes the share-link HTTP 400 fix.
 
 Device checks before release:
 
