@@ -12,6 +12,8 @@ V-Get downloads public Facebook, YouTube, Instagram and Threads videos on Androi
 - 🔐 Handles runtime permissions for you
 - 🌐 Detects the platform automatically, including shared text and short links
 - 🎬 Merges separate YouTube audio/video streams with FFmpeg
+- 🎚️ Analyze the link, then choose from the source's available qualities before downloading
+- ▶️ Preview the selected quality and play the completed download inside the app
 - 🔄 Update the YouTube/Instagram download engine from the app
 
 ## Requirements
@@ -29,16 +31,20 @@ V-Get downloads public Facebook, YouTube, Instagram and Threads videos on Androi
 2. **Paste the link**
    - Open the V-Get app
    - Tap *Paste* to auto-fill the copied URL, or enter it manually
-   - Alternatively, use another app’s *Share* menu and select *V-Get*; tap *Download* to confirm
+   - Alternatively, use another app’s *Share* menu and select *V-Get*
 
-3. **Download the video**
-   - Hit *Download*
-   - The app analyzes the link and shows progress updates
+3. **Choose a quality and download**
+   - Tap **Analyze quality** (分析畫質)
+   - Select one of the available qualities; only qualities reported by the source are listed
+   - Tap **Preview** (試播所選畫質) to test playback, or **Download selected quality** (下載所選畫質)
+   - Separate audio/video streams are paired for preview and merged when downloading; the app does not silently switch to another quality
    - Receive a completion message with the saved location
 
 4. **Watch your video**
    - Files are saved under `Downloads/V-Get/`
-   - Open with any media player you prefer
+   - Tap **Play last download** (播放上次下載) to check the saved file inside V-Get, or use another player
+
+YouTube/Instagram choices show the reported resolution, frame rate and container. Equivalent formats prefer broadly supported codecs. Threads lists the distinct progressive versions in the target post. Facebook lists HD/SD when supplied. A source with only one version has one choice; missing dimensions are marked as unknown, never guessed.
 
 ## Supported URL Formats
 
@@ -61,12 +67,15 @@ app/
 ├── src/main/
 │   ├── java/com/vget/app/
 │   │   ├── MainActivity.kt              # Main activity
+│   │   ├── PlayerActivity.kt            # Selected-quality preview and saved-file playback
 │   │   ├── network/
 │   │   │   ├── VideoExtractor.kt        # Video URL extractor
 │   │   │   ├── VideoDownloader.kt       # Progressive downloads
 │   │   │   ├── VideoDownloadService.kt  # Platform routing
 │   │   │   ├── VideoSource.kt           # URL validation and normalization
 │   │   │   ├── YtDlpDownloader.kt       # YouTube/Instagram engine
+│   │   │   ├── YtDlpMetadataParser.kt   # Exact formats, audio pairing and preview streams
+│   │   │   ├── VideoDetails.kt          # Quality choices and saved-video model
 │   │   │   ├── ThreadsPageParser.kt     # Targeted Threads post parsing
 │   │   │   └── VideoStorage.kt          # MediaStore / legacy storage
 │   │   └── utils/
@@ -126,6 +135,7 @@ Pull requests and pushes to `main` also run the Android build in GitHub Actions.
 - **Kotlin Coroutines** – Asynchronous programming
 - **ViewBinding** – Type-safe view access
 - **AndroidX Libraries** – Jetpack components
+- **Media3 ExoPlayer** – In-app streaming and local playback
 
 ## Permission Usage
 
@@ -151,6 +161,9 @@ Depending on the Android version, the app may request:
 - Playlists/accounts are not batch-downloaded. Multi-video posts download the first video only
 - The app must remain open while downloading; leaving/destroying the activity cancels its job
 - Temporary storage is required for downloading, merging and copying the completed video
+- Streaming preview needs a playable direct/HLS URL. Fragment-only formats must be downloaded before playback; the app explains this when selected
+- Playback depends on the device's codec support. If a high-resolution codec cannot play, try an available H.264 option
+- Media URLs expire. Analyze the link again if preview or the chosen quality stops working
 - Threads selects the requested post ID from public page data; it never substitutes a recommended video
 - Threads support requires public progressive video URLs in the page. Login walls, DASH-only posts or layout changes may prevent extraction
 - Private-account videos require authentication (not supported)
@@ -159,8 +172,8 @@ Depending on the Android version, the app may request:
 ## Roadmap
 
 - [ ] Batch downloads
-- [ ] Quality selection (HD / SD)
-- [ ] Video preview before download
+- [x] Source quality selection before download
+- [x] Selected-quality preview and completed-download playback
 - [x] YouTube, Instagram and Threads video support
 - [ ] Download history
 - [ ] Dark mode enhancements
@@ -173,7 +186,7 @@ Depending on the Android version, the app may request:
 2. Verify the URL format
 3. Make sure storage permissions are granted
 4. Copy the link again and retry
-5. The first YouTube/Instagram download updates the engine automatically (internet required). If extraction fails later, tap **Update download engine**. Updates come from the official yt-dlp stable release; failure falls back to the bundled engine and can be retried.
+5. The first YouTube/Instagram analysis updates the engine automatically (internet required). If extraction fails later, tap **Update download engine**. Updates come from the official yt-dlp stable release; failure falls back to the bundled engine and can be retried.
 
 ### Cannot find the video
 
@@ -190,8 +203,8 @@ Depending on the Android version, the app may request:
 
 - YouTube/Instagram use [youtubedl-android 0.18.1](https://github.com/yausername/youtubedl-android) (GPL-3.0), including Python, QuickJS and yt-dlp, plus FFmpeg for audio/video merging. Native libraries increase APK size.
 - Threads uses a separate public-page parser, including public link-preview HTML when needed. Login, cookies and private accounts are not supported.
-- Unit tests cover URL variants, deceptive domains, requested-post selection, mixed carousels, signed URLs, completed-file validation and engine arguments.
-- Device checks: public clips from all four platforms, merged YouTube audio/video, cancellation, Android 9 and 10+ storage, and private/deleted/rate-limited failures. Unit tests do not guarantee live platform availability.
+- Unit tests cover URL variants, deceptive domains, requested-post selection, mixed carousels, signed URLs, completed-file validation, exact selected-format arguments, quality extraction, audio pairing and preview headers.
+- Device checks still required: public clips from all four platforms, selected-quality streaming with audio, saved-file playback, cancellation, Android 9 and 10+ storage, and private/deleted/rate-limited failures. Build and unit tests do not establish on-device playback or live platform availability.
 
 ## License
 

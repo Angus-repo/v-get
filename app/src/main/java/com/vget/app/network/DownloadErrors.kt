@@ -7,6 +7,7 @@ internal object DownloadErrors {
         val message = error.message.orEmpty()
         val lower = message.lowercase(Locale.ROOT)
         return when {
+            "requested format" in lower -> "所選畫質目前無法取得，請重新分析連結後再選擇。"
             listOf("private", "login", "log in", "sign in", "age-restricted", "cookies", "members-only").any { it in lower } ->
                 "${platform.displayName} 要求登入，或影片有私人／年齡限制。目前僅支援不需登入的公開影片。"
             "429" in lower || "too many requests" in lower -> "${platform.displayName} 暫時限制下載次數，請稍後再試。"

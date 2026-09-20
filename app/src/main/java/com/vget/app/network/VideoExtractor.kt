@@ -66,7 +66,9 @@ class VideoExtractor {
 
             // 解析影片 URL
             Log.d(TAG, "開始解析影片 URL...")
-            val videoUrl = parseVideoUrl(html)
+            val source = VideoSource.parse(normalizedUrl)
+            val qualities = FacebookQualityParser.parse(html, source).filter { verifyVideoStream(it.directUrl!!) }
+            val videoUrl = qualities.firstOrNull()?.directUrl ?: parseVideoUrl(html)
             if (videoUrl == null) {
                 Log.e(TAG, "無法找到影片連結")
                 // 嘗試記錄 HTML 中是否包含 video 關鍵字
@@ -82,7 +84,8 @@ class VideoExtractor {
             Result.success(VideoInfo(
                 videoUrl = videoUrl,
                 sourceUrl = normalizedUrl,
-                title = extractTitle(html)
+                title = extractTitle(html),
+                qualities = qualities.ifEmpty { listOf(directQuality(videoUrl, source)) }
             ))
 
         } catch (e: CancellationException) {
@@ -440,6 +443,7 @@ class VideoExtractor {
     data class VideoInfo(
         val videoUrl: String,
         val sourceUrl: String,
-        val title: String
+        val title: String,
+        val qualities: List<VideoQuality> = emptyList()
     )
 }

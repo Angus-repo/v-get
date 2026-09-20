@@ -6,6 +6,7 @@ import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import java.io.File
@@ -14,7 +15,7 @@ import java.io.OutputStream
 
 /** Only publish complete files; failed or cancelled copies leave no visible partial video. */
 internal class VideoStorage(private val context: Context) {
-    suspend fun save(file: File, name: String): String {
+    suspend fun save(file: File, name: String): SavedVideo {
         require(file.isFile && file.length() > 0) { "影片下載未完成，請重試" }
         val mime = when (file.extension.lowercase()) {
             "webm" -> "video/webm"
@@ -41,7 +42,7 @@ internal class VideoStorage(private val context: Context) {
                 resolver.delete(uri, null, null)
                 throw e
             }
-            return "${Environment.DIRECTORY_DOWNLOADS}/V-Get/$name"
+            return SavedVideo("${Environment.DIRECTORY_DOWNLOADS}/V-Get/$name", uri.toString(), mime)
         }
         @Suppress("DEPRECATION")
         val directory = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "V-Get")
@@ -56,7 +57,7 @@ internal class VideoStorage(private val context: Context) {
             partial.delete()
         }
         MediaScannerConnection.scanFile(context, arrayOf(target.absolutePath), arrayOf(mime), null)
-        return target.absolutePath
+        return SavedVideo(target.absolutePath, FileProvider.getUriForFile(context, "${context.packageName}.files", target).toString(), mime)
     }
 
     private suspend fun copy(file: File, output: OutputStream) {

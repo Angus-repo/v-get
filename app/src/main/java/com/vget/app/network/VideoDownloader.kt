@@ -77,7 +77,7 @@ class VideoDownloader(context: Context) {
         object Starting : DownloadProgress()
         data class Processing(val message: String) : DownloadProgress()
         data class Progress(val percentage: Int, val downloadedBytes: Long = 0, val totalBytes: Long = -1) : DownloadProgress()
-        data class Completed(val filePath: String) : DownloadProgress()
+        data class Completed(val video: SavedVideo) : DownloadProgress()
         data class Error(val message: String) : DownloadProgress()
     }
 }

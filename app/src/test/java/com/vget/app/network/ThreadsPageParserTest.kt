@@ -48,6 +48,30 @@ class ThreadsPageParserTest {
         assertNotNull(result)
     }
 
+    @Test fun exposesEveryDistinctResolutionAndKeepsItsExactMediaUrl() {
+        val result = ThreadsPageParser.parse(page("""{"code":"TARGET","video_versions":[
+          {"url":"https://video.fbcdn.net/low.mp4?sig=low","width":640,"height":360},
+          {"url":"https://video.fbcdn.net/high.mp4?sig=high","width":1920,"height":1080},
+          {"url":"https://video.fbcdn.net/high.mp4?sig=duplicate","width":1920,"height":1080}
+        ]}"""), source)!!
+        assertEquals(listOf(1080, 360), result.qualities.map { it.resolution })
+        val selected = result.qualities.last()
+        assertEquals("https://video.fbcdn.net/low.mp4?sig=low", selected.directUrl)
+        assertEquals(selected.directUrl, selected.preview!!.video.url)
+    }
+
+    @Test fun missingVersionDimensionsNeverInheritOriginalResolution() {
+        val result = ThreadsPageParser.parse(page("""{"code":"TARGET","original_width":1920,
+          "original_height":1080,"has_audio":false,"video_versions":[
+          {"url":"https://video.fbcdn.net/one.mp4"},
+          {"url":"https://video.fbcdn.net/two.mp4"}
+        ]}"""), source)!!
+        assertEquals(2, result.qualities.size)
+        assertTrue(result.qualities.all { it.resolution == null && it.silent })
+        assertTrue(result.qualities.all { it.label.contains("解析度未提供") && !it.label.contains("1080") })
+        assertNotEquals(result.qualities[0].label, result.qualities[1].label)
+    }
+
     @Test fun shareWithoutCanonicalIdentityIsRejected() {
         assertNull(ThreadsPageParser.parse(page("""{"code":"OTHER","video_url":"https://video.fbcdn.net/wrong.mp4"}"""),
             VideoSource.parse("https://threads.net/share/opaque")))

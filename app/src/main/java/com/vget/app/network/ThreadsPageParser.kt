@@ -32,11 +32,11 @@ internal object ThreadsPageParser {
             runCatching { JsonParser.parseString(script.data()) }.getOrNull()?.let { visit(it) }
         }
         for (post in matches) {
-            val url = videoUrl(post) ?: post.get("carousel_media")?.takeIf { it.isJsonArray }
+            val qualities = videoQualities(post, source).ifEmpty { post.get("carousel_media")?.takeIf { it.isJsonArray }
                 ?.asJsonArray?.asSequence()?.filter { it.isJsonObject }
-                ?.mapNotNull { videoUrl(it.asJsonObject) }?.firstOrNull()
-            if (url != null) {
-                return VideoExtractor.VideoInfo(url, source.url, document.title().ifBlank { "Threads Video" })
+                ?.map { videoQualities(it.asJsonObject, source) }?.firstOrNull { it.isNotEmpty() }.orEmpty() }
+            if (qualities.isNotEmpty()) {
+                return VideoExtractor.VideoInfo(qualities.first().directUrl!!, source.url, document.title().ifBlank { "Threads Video" }, qualities)
             }
         }
         // A matched text/image-only post must not fall back to unrelated page media.
@@ -45,16 +45,24 @@ internal object ThreadsPageParser {
         val metaUrl = sequenceOf("og:video:secure_url", "og:video:url", "og:video")
             .mapNotNull { document.selectFirst("meta[property=$it]")?.attr("content") }
             .firstOrNull { isMediaUrl(it) } ?: return null
-        return VideoExtractor.VideoInfo(metaUrl, source.url, document.title().ifBlank { "Threads Video" })
+        return VideoExtractor.VideoInfo(metaUrl, source.url, document.title().ifBlank { "Threads Video" }, listOf(directQuality(metaUrl, source)))
     }
 
-    private fun videoUrl(media: JsonObject): String? {
+    private fun videoQualities(media: JsonObject, source: VideoSource): List<VideoQuality> {
         val versions = media.get("video_versions")?.takeIf { it.isJsonArray }?.asJsonArray
-        return versions?.asSequence()?.filter { it.isJsonObject }?.map { it.asJsonObject }
+        val silent = media.get("has_audio")?.let { runCatching { !it.asBoolean }.getOrDefault(false) } ?: false
+        val choices = versions?.asSequence()?.filter { it.isJsonObject }?.map { it.asJsonObject }
             ?.filter { it.text("url")?.let(::isMediaUrl) == true }
-            ?.sortedByDescending { (it.number("width") * it.number("height")) }
-            ?.firstOrNull()?.text("url")
-            ?: media.text("video_url")?.takeIf(::isMediaUrl)
+            ?.distinctBy { it.text("url")!!.toHttpUrlOrNull()!!.let { url -> url.host + url.encodedPath } }
+            ?.mapIndexed { index, version -> directQuality(version.text("url")!!, source, "threads-$index",
+                version.number("width").toInt().takeIf { it > 0 }, version.number("height").toInt().takeIf { it > 0 }, silent = silent) }
+            ?.sortedByDescending { it.resolution ?: 0 }?.toList().orEmpty()
+        if (choices.isNotEmpty()) {
+            return choices.mapIndexed { index, quality ->
+                if (choices.size > 1 && quality.resolution == null) quality.copy(description = "來源畫質 ${index + 1}（解析度未提供）") else quality
+            }
+        }
+        return media.text("video_url")?.takeIf(::isMediaUrl)?.let { listOf(directQuality(it, source, silent = silent)) }.orEmpty()
     }
 
     private fun isMediaUrl(value: String): Boolean {

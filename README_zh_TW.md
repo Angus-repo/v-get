@@ -11,6 +11,8 @@
 - 🔐 完整的權限管理
 - 🌐 自動辨識平台、分享文字與短網址
 - 🎬 自動合併 YouTube 的影像與音訊
+- 🎚️ 先分析連結，再選擇來源實際提供的畫質下載
+- ▶️ 在 App 內試播所選畫質，也可播放剛下載的檔案
 - 🔄 可在 App 內更新 YouTube／Instagram 下載引擎
 
 ## 系統需求
@@ -29,17 +31,19 @@
    - 開啟 V-Get 應用程式
    - 點擊「貼上」按鈕，自動貼上剛才複製的連結
    - 或手動在輸入框中貼上連結
-   - 也可在其他 App 的「分享」選單選擇 V-Get，再點擊「下載」
+   - 也可在其他 App 的「分享」選單選擇 V-Get
 
-3. **下載影片**
-   - 點擊「下載」按鈕
-   - 應用程式會自動分析影片連結
-   - 顯示下載進度
+3. **選擇畫質並下載**
+   - 點擊「分析畫質」，列出來源實際提供的選項
+   - 選擇畫質，再點擊「試播所選畫質」或「下載所選畫質」
+   - 分開提供的影音會配對試播，下載時自動合併；不會自行換成其他畫質
    - 下載完成後會顯示儲存位置
 
 4. **查看影片**
    - 下載完成的影片會儲存在：`Downloads/V-Get/` 資料夾
-   - 可使用任何影片播放器開啟
+   - 點擊「播放上次下載」可直接在 App 內檢查，也可使用其他影片播放器
+
+YouTube／Instagram 依來源資料顯示解析度、幀率及檔案格式；相同條件優先選擇較普遍支援的編碼。Threads 列出指定貼文提供的不同完整影片版本；Facebook 有提供時列出 HD／SD。只有一種版本就只顯示一個選項，未提供解析度時明確標示，不推測數值。
 
 ## 支援的 URL 格式
 
@@ -62,12 +66,15 @@ app/
 ├── src/main/
 │   ├── java/com/vget/app/
 │   │   ├── MainActivity.kt              # 主要活動
+│   │   ├── PlayerActivity.kt            # 所選畫質試播與已下載檔案播放
 │   │   ├── network/
 │   │   │   ├── VideoExtractor.kt        # 影片連結提取器
 │   │   │   ├── VideoDownloader.kt       # 直接下載影片
 │   │   │   ├── VideoDownloadService.kt  # 平台分流
 │   │   │   ├── VideoSource.kt           # 網址驗證與正規化
 │   │   │   ├── YtDlpDownloader.kt       # YouTube／Instagram 引擎
+│   │   │   ├── YtDlpMetadataParser.kt   # 畫質、音軌配對與試播串流
+│   │   │   ├── VideoDetails.kt          # 畫質選項與已儲存影片資料
 │   │   │   ├── ThreadsPageParser.kt     # 指定 Threads 貼文解析
 │   │   │   └── VideoStorage.kt          # MediaStore 與舊版儲存
 │   │   └── utils/
@@ -127,6 +134,7 @@ Pull Request 與推送至 `main` 時，也會執行 GitHub Actions Android 建�
 - **Kotlin Coroutines** - 非同步處理
 - **ViewBinding** - 視圖綁定
 - **AndroidX Libraries** - Android 擴充函式庫
+- **Media3 ExoPlayer** - App 內串流試播與本機播放
 
 ## 權限說明
 
@@ -152,6 +160,9 @@ Pull Request 與推送至 `main` 時，也會執行 GitHub Actions Android 建�
 - 不批次下載播放清單或帳號；多影片貼文只下載第一支影片
 - 下載期間請保持 App 開啟；活動結束時會取消工作
 - 需要暫存空間來下載、合併影音並複製完成的影片
+- 線上試播需要可直接播放或 HLS 的網址；僅提供片段的格式須先下載再播放，選取時會顯示說明
+- 播放能力取決於裝置支援的編碼；高解析度編碼無法播放時，可改選來源提供的 H.264 版本
+- 影片網址有時效；試播或所選畫質失效時，請重新分析連結
 - Threads 依貼文 ID 尋找指定影片，不會以推薦影片替代
 - Threads 頁面必須提供公開的完整影片網址；登入限制、僅提供 DASH 或網頁結構變動可能導致無法解析
 - 私人帳號的影片需要登入才能下載（目前不支援）
@@ -160,8 +171,8 @@ Pull Request 與推送至 `main` 時，也會執行 GitHub Actions Android 建�
 ## 未來計劃
 
 - [ ] 支援批次下載
-- [ ] 支援選擇影片品質（HD/SD）
-- [ ] 加入影片預覽功能
+- [x] 下載前選擇來源提供的畫質
+- [x] 所選畫質試播與已下載檔案播放
 - [x] 支援 YouTube、Instagram 與 Threads 影片下載
 - [ ] 加入下載歷史記錄
 - [ ] 深色模式最佳化
@@ -174,7 +185,7 @@ Pull Request 與推送至 `main` 時，也會執行 GitHub Actions Android 建�
 2. 確認 URL 格式正確
 3. 確認已授予儲存空間權限
 4. 嘗試重新複製連結
-5. 首次下載 YouTube／Instagram 時會自動更新引擎（需要網路）；之後若解析失敗，可點擊「**更新下載引擎**」。更新來源為 yt-dlp 官方穩定版；更新失敗會嘗試內建版本，之後可再更新。
+5. 首次分析 YouTube／Instagram 時會自動更新引擎（需要網路）；之後若解析失敗，可點擊「**更新下載引擎**」。更新來源為 yt-dlp 官方穩定版；更新失敗會嘗試內建版本，之後可再更新。
 
 ### 找不到影片
 
@@ -191,8 +202,8 @@ Pull Request 與推送至 `main` 時，也會執行 GitHub Actions Android 建�
 
 - YouTube／Instagram 使用 [youtubedl-android 0.18.1](https://github.com/yausername/youtubedl-android)（GPL-3.0），包含 Python、QuickJS 與 yt-dlp；另使用 FFmpeg 合併影音。原生函式庫使 APK 體積增加。
 - Threads 使用獨立的公開頁面解析器；必要時讀取公開連結預覽頁面。不支援登入、匯入 Cookie 或私人帳號。
-- 單元測試涵蓋網址格式、偽造網域、貼文定位、混合輪播、簽章網址保留、下載完成檔案判斷與引擎參數。
-- 實機驗證：測試四平台公開影片、YouTube 影音合併、取消下載、Android 9／10+ 儲存，以及私人／已刪除／限流錯誤。單元測試不代表外部平台即時可用性。
+- 單元測試涵蓋網址格式、偽造網域、貼文定位、混合輪播、簽章網址保留、下載完成檔案判斷、指定畫質參數、畫質解析、音軌配對與試播請求標頭。
+- 待實機驗證：四平台公開影片、所選畫質與聲音試播、下載檔案播放、取消下載、Android 9／10+ 儲存，以及私人／已刪除／限流錯誤。建置與單元測試不代表已完成實機播放驗證，也不保證外部平台即時可用性。
 
 ## 授權
 

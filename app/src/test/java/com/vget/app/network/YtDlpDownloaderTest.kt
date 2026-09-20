@@ -13,7 +13,8 @@ class YtDlpDownloaderTest {
     @Test fun commandDownloadsOneVideoAndReportsOnlyAfterMerging() {
         val directory = temporary.newFolder("download")
         val manifest = File(directory, "completed.txt")
-        val request = YtDlpDownloader.buildRequest("https://youtube.com/watch?v=BaW_jenozKc", directory, manifest)
+        val request = YtDlpDownloader.buildRequest("https://youtube.com/watch?v=BaW_jenozKc", directory, manifest,
+            VideoQuality("136+140", height = 720, formatSelector = "136+140"))
         // The wrapper appends options before its custom commands.
         request.addOption("--js-runtimes", "quickjs:/test/libqjs.so")
         val command = request.buildCommand()
@@ -23,7 +24,27 @@ class YtDlpDownloaderTest {
         assertTrue(command.contains("--abort-on-unavailable-fragments"))
         assertTrue(command.contains("--no-simulate"))
         assertEquals("1", request.getOption("--playlist-items"))
-        assertTrue(request.getOption("-f")!!.contains("+bestaudio"))
+        assertEquals("136+140", request.getOption("-f"))
+        assertFalse(request.getOption("-f")!!.contains("/"))
+    }
+
+
+    @Test fun inspectionNeverDownloadsMedia() {
+        val request = YtDlpDownloader.buildInspectRequest("https://youtube.com/watch?v=BaW_jenozKc")
+        assertTrue(request.hasOption("--skip-download"))
+        assertTrue(request.hasOption("--dump-single-json"))
+        assertFalse(request.hasOption("--no-simulate"))
+    }
+
+    @Test fun missingOrFallbackSelectorsCannotBypassUserChoice() {
+        val directory = temporary.newFolder("selectors")
+        val manifest = File(directory, "complete.txt")
+        listOf(null, "136/best", "137+140+251").forEach { selector ->
+            assertThrows(IllegalArgumentException::class.java) {
+                YtDlpDownloader.buildRequest("https://youtube.com/watch?v=BaW_jenozKc", directory, manifest,
+                    VideoQuality("test", formatSelector = selector))
+            }
+        }
     }
 
     @Test fun acceptsOnlyCompletedNonemptyMediaInJobDirectory() {

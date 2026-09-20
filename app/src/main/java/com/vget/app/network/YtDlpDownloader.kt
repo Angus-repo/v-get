@@ -29,28 +29,44 @@ internal class YtDlpDownloader(context: Context) {
         YoutubeDL.getInstance().updateYoutubeDL(context, YoutubeDL.UpdateChannel.STABLE)
     }
 
-    fun download(source: VideoSource): Flow<VideoDownloader.DownloadProgress> = channelFlow {
+    private suspend fun prepareEngine() {
+        val needsUpdate = runInterruptible(Dispatchers.IO) {
+            initialize()
+            YoutubeDL.getInstance().version(context) == null
+        }
+        if (needsUpdate) {
+            try {
+                updateEngine()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Retain the bundled engine if the update endpoint is unavailable.
+            }
+        }
+    }
+
+    suspend fun inspect(source: VideoSource): VideoDetails {
+        val id = UUID.randomUUID().toString()
+        try {
+            prepareEngine()
+            return runInterruptible(Dispatchers.IO) {
+                val response = YoutubeDL.getInstance().execute(buildInspectRequest(source.url), id)
+                YtDlpMetadataParser.parse(response.out, source)
+            }
+        } finally {
+            YoutubeDL.getInstance().destroyProcessById(id)
+        }
+    }
+
+    fun download(source: VideoSource, quality: VideoQuality): Flow<VideoDownloader.DownloadProgress> = channelFlow {
         val id = UUID.randomUUID().toString()
         val directory = File(context.cacheDir, "vget-$id")
         try {
             send(VideoDownloader.DownloadProgress.Processing("正在準備 ${source.platform.displayName} 下載..."))
-            val needsUpdate = runInterruptible(Dispatchers.IO) {
-                initialize()
-                check(directory.mkdirs()) { "無法建立下載暫存資料夾" }
-                YoutubeDL.getInstance().version(context) == null
-            }
-            if (needsUpdate) {
-                send(VideoDownloader.DownloadProgress.Processing("首次使用：正在更新下載引擎..."))
-                try {
-                    updateEngine()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    send(VideoDownloader.DownloadProgress.Processing("更新未完成，嘗試使用內建下載引擎..."))
-                }
-            }
+            prepareEngine()
+            runInterruptible(Dispatchers.IO) { check(directory.mkdirs()) { "無法建立下載暫存資料夾" } }
             val manifest = File(directory, "completed.txt")
-            val request = buildRequest(source.url, directory, manifest)
+            val request = buildRequest(source.url, directory, manifest, quality)
             runInterruptible(Dispatchers.IO) {
                 YoutubeDL.getInstance().execute(request, id) { progress, _, _ ->
                     if (progress >= 0) trySend(VideoDownloader.DownloadProgress.Progress(progress.toInt().coerceIn(0, 99)))
@@ -74,29 +90,39 @@ internal class YtDlpDownloader(context: Context) {
     }
 
     companion object {
-        internal fun buildRequest(url: String, directory: File, manifest: File): YoutubeDLRequest =
-            YoutubeDLRequest(url).apply {
-                addOption("--ignore-config")
-                addOption("--no-playlist")
-                // For a multi-video post, download the first video only.
-                addOption("--playlist-items", "1")
-                addOption("--match-filters", "!is_live & !is_upcoming")
-                addOption("--socket-timeout", "30")
-                addOption("--retries", "3")
-                addOption("--fragment-retries", "3")
+        private fun baseRequest(url: String) = YoutubeDLRequest(url).apply {
+            addOption("--ignore-config")
+            addOption("--no-playlist")
+            addOption("--playlist-items", "1")
+            addOption("--match-filters", "!is_live & !is_upcoming")
+            addOption("--socket-timeout", "30")
+            addOption("--retries", "3")
+            addOption("--fragment-retries", "3")
+        }
+
+        internal fun buildInspectRequest(url: String) = baseRequest(url).apply {
+            addOption("--dump-single-json")
+            addOption("--skip-download")
+        }
+
+        internal fun buildRequest(url: String, directory: File, manifest: File, quality: VideoQuality): YoutubeDLRequest {
+            val selector = requireNotNull(quality.formatSelector) { "請先分析影片並選擇畫質" }
+            require(Regex("[A-Za-z0-9_.-]+(?:\\+[A-Za-z0-9_.-]+)?").matches(selector)) { "無效的影片畫質" }
+            require(quality.container in setOf("mp4", "webm", "mkv")) { "不支援的影片格式" }
+            return baseRequest(url).apply {
                 addOption("--abort-on-unavailable-fragments")
                 addOption("--no-mtime")
                 addOption("--no-simulate")
                 addOption("--newline")
-                addOption("-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/bestvideo+bestaudio/best")
-                addOption("--merge-output-format", "mp4")
+                // Exact selection: failure asks for re-analysis instead of choosing another quality.
+                addOption("-f", selector)
+                addOption("--merge-output-format", quality.container)
                 addOption("-o", File(directory, "video.%(ext)s").absolutePath)
-                // Keep both arguments adjacent even when the wrapper adds more options.
                 addCommands(listOf("--print-to-file", "after_move:filepath", manifest.absolutePath))
             }
+        }
 
         internal fun completedFile(directory: File, manifest: File): File {
-            // after_move is emitted only after fragments and audio/video merging complete.
             val path = manifest.takeIf { it.isFile }?.readLines()?.singleOrNull()
                 ?: throw IOException("找不到完整影片；直播、預告或無影片的貼文目前不支援")
             val file = File(path).canonicalFile
