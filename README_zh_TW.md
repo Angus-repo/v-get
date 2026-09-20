@@ -1,15 +1,17 @@
-# V-Get - Facebook 影片下載器
+# V-Get - 社群影片下載器
 
-一個簡單易用的 Android 應用程式，專門用於下載 Facebook 影片（包含留言中的影片）。
+下載 Facebook、YouTube、Instagram 與 Threads 公開影片的 Android 應用程式。可貼上影片連結，也可從其他 App 直接分享至 V-Get。
 
 ## 功能特色
 
 - ✨ 簡潔直觀的使用者介面
-- 📱 支援 Facebook 影片和留言影片下載
+- 📱 支援 Facebook、YouTube／Shorts、Instagram 貼文／Reels、Threads 影片貼文
 - 📊 即時下載進度顯示
 - 💾 自動儲存至 Downloads/V-Get 資料夾
 - 🔐 完整的權限管理
-- 🌐 支援多種 Facebook URL 格式
+- 🌐 自動辨識平台、分享文字與短網址
+- 🎬 自動合併 YouTube 的影像與音訊
+- 🔄 可在 App 內更新 YouTube／Instagram 下載引擎
 
 ## 系統需求
 
@@ -20,13 +22,14 @@
 ## 使用方式
 
 1. **複製影片連結**
-   - 在 Facebook 應用程式或網頁中，找到想要下載的影片
+   - 在 Facebook、YouTube、Instagram 或 Threads 中，找到想要下載的影片
    - 點擊分享按鈕，選擇「複製連結」
 
 2. **貼上連結**
    - 開啟 V-Get 應用程式
    - 點擊「貼上」按鈕，自動貼上剛才複製的連結
    - 或手動在輸入框中貼上連結
+   - 也可在其他 App 的「分享」選單選擇 V-Get，再點擊「下載」
 
 3. **下載影片**
    - 點擊「下載」按鈕
@@ -46,6 +49,12 @@
 - `https://m.facebook.com/...`
 - Facebook 留言中的影片連結
 
+| 平台 | 支援格式 |
+| --- | --- |
+| YouTube | `youtube.com/watch?v=VIDEO_ID`、`youtu.be/VIDEO_ID`、`youtube.com/shorts/VIDEO_ID` |
+| Instagram | `instagram.com/p/CODE/`、`instagram.com/reel/CODE/`、`instagram.com/tv/CODE/`、分享短連結 |
+| Threads | `threads.com/@user/post/CODE`、`threads.net/@user/post/CODE`、`threads.com/t/CODE`、`threads.com/share/CODE` |
+
 ## 專案結構
 
 ```
@@ -55,7 +64,12 @@ app/
 │   │   ├── MainActivity.kt              # 主要活動
 │   │   ├── network/
 │   │   │   ├── VideoExtractor.kt        # 影片連結提取器
-│   │   │   └── VideoDownloader.kt       # 影片下載管理器
+│   │   │   ├── VideoDownloader.kt       # 直接下載影片
+│   │   │   ├── VideoDownloadService.kt  # 平台分流
+│   │   │   ├── VideoSource.kt           # 網址驗證與正規化
+│   │   │   ├── YtDlpDownloader.kt       # YouTube／Instagram 引擎
+│   │   │   ├── ThreadsPageParser.kt     # 指定 Threads 貼文解析
+│   │   │   └── VideoStorage.kt          # MediaStore 與舊版儲存
 │   │   └── utils/
 │   │       └── PermissionHelper.kt      # 權限管理工具
 │   ├── res/
@@ -77,15 +91,15 @@ app/
 
 ### 前置要求
 
-- Android Studio Arctic Fox 或更新版本
-- JDK 8 或更高版本
+- Android Studio Giraffe 或更新版本
+- JDK 17
 - Android SDK API Level 34
 
 ### 建置步驟
 
 1. **Clone 專案**
    ```bash
-   git clone https://github.com/yourusername/v-get.git
+   git clone https://github.com/Angus-repo/v-get.git
    cd v-get
    ```
 
@@ -95,13 +109,15 @@ app/
 
 3. **建置應用程式**
    ```bash
-   ./gradlew build
+   ./gradlew testDebugUnitTest assembleDebug lintDebug
    ```
 
 4. **安裝至裝置**
    ```bash
    ./gradlew installDebug
    ```
+
+Pull Request 與推送至 `main` 時，也會執行 GitHub Actions Android 建置。成功後可在該次執行的產物下載 `v-get-debug`（可安裝的測試版 APK），並查看測試與 lint 報告。
 
 ## 使用的技術與函式庫
 
@@ -117,9 +133,8 @@ app/
 應用程式需要以下權限：
 
 - `INTERNET` - 下載影片所需
-- `READ_EXTERNAL_STORAGE` (Android 10 及以下) - 讀取儲存空間
-- `WRITE_EXTERNAL_STORAGE` (Android 9 及以下) - 寫入儲存空間
-- `READ_MEDIA_VIDEO` (Android 13+) - 讀取媒體影片
+- `WRITE_EXTERNAL_STORAGE` - 僅 Android 7～9 需要
+- Android 10 以上使用 MediaStore 儲存新下載的影片，不需取得既有相片或影片的讀取權限。
 
 ## 注意事項
 
@@ -129,11 +144,16 @@ app/
 2. 尊重版權，僅供個人使用
 3. 不要下載受版權保護的內容
 4. 某些私人影片或受限影片可能無法下載
-5. Facebook 可能會變更其 API，導致部分功能失效
+5. 各平台可能調整網頁或限制流量，導致暫時無法解析
 
 ## 已知問題
 
-- 某些直播影片可能無法下載
+- 僅支援不需登入的公開影片；不支援直播、尚未開始的影片或 DRM 內容
+- 不批次下載播放清單或帳號；多影片貼文只下載第一支影片
+- 下載期間請保持 App 開啟；活動結束時會取消工作
+- 需要暫存空間來下載、合併影音並複製完成的影片
+- Threads 依貼文 ID 尋找指定影片，不會以推薦影片替代
+- Threads 頁面必須提供公開的完整影片網址；登入限制、僅提供 DASH 或網頁結構變動可能導致無法解析
 - 私人帳號的影片需要登入才能下載（目前不支援）
 - Facebook Stories 暫不支援
 
@@ -142,7 +162,7 @@ app/
 - [ ] 支援批次下載
 - [ ] 支援選擇影片品質（HD/SD）
 - [ ] 加入影片預覽功能
-- [ ] 支援 Instagram 影片下載
+- [x] 支援 YouTube、Instagram 與 Threads 影片下載
 - [ ] 加入下載歷史記錄
 - [ ] 深色模式最佳化
 
@@ -154,6 +174,7 @@ app/
 2. 確認 URL 格式正確
 3. 確認已授予儲存空間權限
 4. 嘗試重新複製連結
+5. 首次下載 YouTube／Instagram 時會自動更新引擎（需要網路）；之後若解析失敗，可點擊「**更新下載引擎**」。更新來源為 yt-dlp 官方穩定版；更新失敗會嘗試內建版本，之後可再更新。
 
 ### 找不到影片
 
@@ -164,7 +185,14 @@ app/
 ### 權限問題
 
 - 進入系統設定 > 應用程式 > V-Get > 權限
-- 手動開啟儲存空間權限
+- Android 7～9 可手動開啟儲存空間權限；Android 10 以上不需要
+
+## 下載引擎與驗證
+
+- YouTube／Instagram 使用 [youtubedl-android 0.18.1](https://github.com/yausername/youtubedl-android)（GPL-3.0），包含 Python、QuickJS 與 yt-dlp；另使用 FFmpeg 合併影音。原生函式庫使 APK 體積增加。
+- Threads 使用獨立的公開頁面解析器；必要時讀取公開連結預覽頁面。不支援登入、匯入 Cookie 或私人帳號。
+- 單元測試涵蓋網址格式、偽造網域、貼文定位、混合輪播、簽章網址保留、下載完成檔案判斷與引擎參數。
+- 實機驗證：測試四平台公開影片、YouTube 影音合併、取消下載、Android 9／10+ 儲存，以及私人／已刪除／限流錯誤。單元測試不代表外部平台即時可用性。
 
 ## 授權
 
@@ -172,7 +200,7 @@ app/
 
 ## 免責聲明
 
-此應用程式僅供教育和研究目的。使用者應自行承擔使用本應用程式的責任，並確保遵守所有適用的法律和 Facebook 的服務條款。開發者不對任何因使用本應用程式而產生的問題負責。
+此應用程式僅供教育和研究目的。使用者應自行承擔使用本應用程式的責任，並確保遵守所有適用的法律和 來源平台的服務條款。開發者不對任何因使用本應用程式而產生的問題負責。
 
 ## 聯絡方式
 
@@ -180,4 +208,4 @@ app/
 
 ---
 
-**注意：** 本應用程式與 Facebook 無關，不代表 Facebook 的官方產品。
+**注意：** 本應用程式並非 Facebook、YouTube、Instagram 或 Threads 的官方產品。

@@ -1,10 +1,10 @@
 package com.vget.app.network
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import java.net.URLDecoder
 import java.util.concurrent.TimeUnit
 import kotlin.text.Charsets
 
@@ -47,8 +47,7 @@ class VideoExtractor {
 
             // 取得網頁內容
             Log.d(TAG, "開始取得網頁內容...")
-            val response = fetchPage(normalizedUrl)
-            val html = response.body?.string() ?: ""
+            val html = fetchPage(normalizedUrl).use { it.body?.string().orEmpty() }
             Log.d(TAG, "取得網頁內容，長度: ${html.length} bytes")
             
             // 檢查 HTML 內容是否有效
@@ -86,6 +85,8 @@ class VideoExtractor {
                 title = extractTitle(html)
             ))
 
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "=== 解析失敗 ===")
             Log.e(TAG, "異常類型: ${e.javaClass.name}")
@@ -96,13 +97,7 @@ class VideoExtractor {
     }
 
     private fun isValidFacebookUrl(url: String): Boolean {
-        val facebookPatterns = listOf(
-            "facebook.com/",
-            "fb.com/",
-            "fb.watch/",
-            "m.facebook.com/"
-        )
-        return facebookPatterns.any { url.contains(it, ignoreCase = true) }
+        return runCatching { VideoSource.parse(url).platform == VideoPlatform.FACEBOOK }.getOrDefault(false)
     }
 
     private fun normalizeFacebookUrl(url: String): String {
@@ -136,6 +131,7 @@ class VideoExtractor {
         // 確認回應是否成功
         if (!response.isSuccessful) {
             Log.e(TAG, "HTTP 請求失敗: ${response.code}")
+            response.close()
             throw Exception("無法連線到 Facebook (錯誤代碼: ${response.code})")
         }
         
@@ -422,14 +418,7 @@ class VideoExtractor {
             .replace("\\u0026", "&")
             .replace("\\\\", "")
         
-        // 如果 URL 是被編碼的，嘗試解碼
-        try {
-            if (unescaped.contains("%")) {
-                unescaped = URLDecoder.decode(unescaped, "UTF-8")
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "URL 解碼失敗: ${e.message}")
-        }
+        // Preserve percent escapes and literal '+' in signed CDN URLs.
         
         return unescaped
     }

@@ -1,149 +1,82 @@
 package com.vget.app.network
 
 import android.content.Context
-import android.os.Environment
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
-import java.io.FileOutputStream
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.io.IOException
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-class VideoDownloader(private val context: Context) {
+/** Downloads progressive Facebook/Threads media, then publishes it through MediaStore. */
+class VideoDownloader(context: Context) {
+    private val context = context.applicationContext
+    private val client = OkHttpClient.Builder().connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS).build()
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .build()
-
-    fun downloadVideo(videoUrl: String, fileName: String? = null): Flow<DownloadProgress> = flow {
+    fun downloadVideo(videoUrl: String, source: VideoSource): Flow<DownloadProgress> = flow {
+        val temporary = File.createTempFile("vget_", ".mp4", context.cacheDir)
         try {
-            android.util.Log.e("VideoDownloader", "=== 開始下載影片 ===")
-            android.util.Log.e("VideoDownloader", "URL 長度: ${videoUrl.length}")
-
             emit(DownloadProgress.Starting)
-
-            val cleanUrl = videoUrl.trim()
-            android.util.Log.e("VideoDownloader", "清理後的 URL 長度: ${cleanUrl.length}")
-
-            val request = Request.Builder()
-                .url(cleanUrl)
-                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                .addHeader("Accept", "*/*")
-                .addHeader("Accept-Encoding", "identity")
-                .addHeader("Referer", "https://www.facebook.com/")
-                .build()
-
-            android.util.Log.e("VideoDownloader", "發送下載請求...")
-            client.newCall(request).execute().use { response ->
-                android.util.Log.e("VideoDownloader", "收到回應: ${response.code}")
-
-                if (!response.isSuccessful) {
-                    android.util.Log.e("VideoDownloader", "HTTP 錯誤: ${response.code}")
-                    emit(DownloadProgress.Error("下載失敗: ${response.code}"))
-                    return@flow
-                }
-
-                val contentType = response.header("Content-Type")?.lowercase() ?: ""
-                android.util.Log.e("VideoDownloader", "Content-Type: $contentType")
-
-                val isVideoContent = contentType.isBlank() ||
-                        contentType.startsWith("video/") ||
-                        contentType.contains("mp4") ||
-                        contentType.contains("octet-stream")
-
-                if (!isVideoContent) {
-                    val preview = response.peekBody(512).string()
-                    android.util.Log.e("VideoDownloader", "回應並非影片格式，預覽: ${preview.take(200)}")
-                    emit(DownloadProgress.Error("取得的內容不是影片檔案"))
-                    return@flow
-                }
-
-                val body = response.body
-                if (body == null) {
-                    android.util.Log.e("VideoDownloader", "回應 body 為空")
-                    emit(DownloadProgress.Error("無法取得影片資料"))
-                    return@flow
-                }
-
-                val contentLength = body.contentLength()
-                android.util.Log.e("VideoDownloader", "檔案大小: $contentLength bytes")
-
-                val downloadDir = getDownloadDirectory()
-                android.util.Log.e("VideoDownloader", "下載目錄: ${downloadDir.absolutePath}")
-                if (!downloadDir.exists()) {
-                    val created = downloadDir.mkdirs()
-                    android.util.Log.e("VideoDownloader", "建立目錄結果: $created")
-                    if (!created) {
-                        android.util.Log.e("VideoDownloader", "無法建立下載目錄")
-                        emit(DownloadProgress.Error("無法建立下載目錄"))
-                        return@flow
-                    }
-                }
-
-                val file = File(downloadDir, fileName ?: generateFileName())
-                android.util.Log.e("VideoDownloader", "目標檔案: ${file.absolutePath}")
-
-                body.byteStream().use { inputStream ->
-                    FileOutputStream(file).use { outputStream ->
-                        val buffer = ByteArray(8192)
-                        var bytesRead: Int
-                        var totalBytesRead = 0L
-
-                        android.util.Log.e("VideoDownloader", "開始寫入檔案...")
-                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                            outputStream.write(buffer, 0, bytesRead)
-                            totalBytesRead += bytesRead
-
-                            if (contentLength > 0) {
-                                val progress = (totalBytesRead * 100 / contentLength).toInt()
-                                emit(DownloadProgress.Progress(progress, totalBytesRead, contentLength))
+            val request = Request.Builder().url(videoUrl)
+                .header("User-Agent", PlatformPageClient.USER_AGENT)
+                .header("Accept", "*/*").header("Accept-Encoding", "identity")
+                .header("Referer", source.platform.referer).build()
+            val call = client.newCall(request)
+            try {
+                call.execute().use { response ->
+                    if (!response.isSuccessful) throw IOException("下載失敗（HTTP ${response.code}）")
+                    val body = response.body ?: throw IOException("無法取得影片資料")
+                    val type = response.header("Content-Type").orEmpty().lowercase()
+                    require(type.startsWith("video/") || type.contains("octet-stream")) { "取得的內容不是影片檔案" }
+                    val total = body.contentLength()
+                    var downloaded = 0L
+                    var lastPercent = -1
+                    body.byteStream().use { input ->
+                        temporary.outputStream().use { output ->
+                            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                            while (true) {
+                                currentCoroutineContext().ensureActive()
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                                downloaded += count
+                                val percent = if (total > 0) (downloaded * 100 / total).toInt().coerceIn(0, 99) else 0
+                                if (percent != lastPercent) {
+                                    emit(DownloadProgress.Progress(percent, downloaded, total))
+                                    lastPercent = percent
+                                }
                             }
                         }
-                        android.util.Log.e("VideoDownloader", "寫入完成，總共: $totalBytesRead bytes")
-
-                        if (contentLength > 0 && totalBytesRead < contentLength) {
-                            android.util.Log.e("VideoDownloader", "檔案大小不一致，期望: $contentLength, 實際: $totalBytesRead")
-                            emit(DownloadProgress.Error("影片下載未完成，請重試"))
-                            return@flow
-                        }
                     }
+                    if (downloaded == 0L || (total >= 0 && downloaded != total)) throw IOException("影片下載未完成，請重試")
                 }
-
-                android.util.Log.e("VideoDownloader", "=== 下載完成 ===")
-                emit(DownloadProgress.Completed(file.absolutePath))
+            } finally {
+                call.cancel()
             }
+            emit(DownloadProgress.Processing("正在儲存影片..."))
+            val name = "${source.platform.name.lowercase()}_${UUID.randomUUID()}.mp4"
+            emit(DownloadProgress.Completed(VideoStorage(context).save(temporary, name)))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            android.util.Log.e("VideoDownloader", "下載過程發生異常: ${e.javaClass.simpleName}", e)
-            android.util.Log.e("VideoDownloader", "錯誤訊息: ${e.message}")
-            android.util.Log.e("VideoDownloader", "Stack trace: ${e.stackTraceToString()}")
-            emit(DownloadProgress.Error(e.message ?: "未知錯誤: ${e.javaClass.simpleName}"))
+            emit(DownloadProgress.Error(DownloadErrors.message(e, source.platform)))
+        } finally {
+            temporary.delete()
         }
     }.flowOn(Dispatchers.IO)
 
-    private fun getDownloadDirectory(): File {
-        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        return File(downloadsDir, "V-Get")
-    }
-
-    private fun generateFileName(): String {
-        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        return "facebook_video_$timestamp.mp4"
-    }
-
     sealed class DownloadProgress {
         object Starting : DownloadProgress()
-        data class Progress(
-            val percentage: Int,
-            val downloadedBytes: Long,
-            val totalBytes: Long
-        ) : DownloadProgress()
+        data class Processing(val message: String) : DownloadProgress()
+        data class Progress(val percentage: Int, val downloadedBytes: Long = 0, val totalBytes: Long = -1) : DownloadProgress()
         data class Completed(val filePath: String) : DownloadProgress()
         data class Error(val message: String) : DownloadProgress()
     }

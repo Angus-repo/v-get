@@ -16,20 +16,10 @@ object PermissionHelper {
      * 取得所需的儲存權限列表
      */
     fun getRequiredPermissions(): Array<String> {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+ 不需要 WRITE_EXTERNAL_STORAGE
-            arrayOf(Manifest.permission.READ_MEDIA_VIDEO)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // Android 11-12
-            arrayOf(
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            )
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            emptyArray()
         } else {
-            // Android 10 以下
-            arrayOf(
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            )
+            arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE)
         }
     }
 
@@ -37,13 +27,8 @@ object PermissionHelper {
      * 檢查是否已授予所有必要權限
      */
     fun hasStoragePermission(context: Context): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // Android 11+ 使用 MediaStore API，不需要特殊權限來寫入 Downloads
-            true
-        } else {
-            getRequiredPermissions().all {
-                ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-            }
+        return getRequiredPermissions().all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
         }
     }
 
@@ -52,6 +37,7 @@ object PermissionHelper {
      */
     fun requestStoragePermission(activity: Activity) {
         val permissions = getRequiredPermissions()
+        if (permissions.isEmpty()) return
         ActivityCompat.requestPermissions(
             activity,
             permissions,

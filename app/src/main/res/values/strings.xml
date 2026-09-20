@@ -1,11 +1,24 @@
 <resources>
     <string name="app_name">V-Get</string>
-    <string name="enter_facebook_url">請輸入 Facebook 影片網址</string>
+    <string name="enter_video_url">貼上影片連結或分享文字</string>
+    <string name="supported_platforms">Facebook · YouTube · Instagram · Threads</string>
+    <string name="usage_instructions">1. 複製影片或貼文連結\n2. 貼上連結，或從其他 App 分享至 V-Get\n3. 點擊「下載」（多影片貼文下載第一支影片）\n4. 影片將儲存至下載資料夾內的 V-Get</string>
+    <string name="engine_hint">僅支援不需登入的公開影片。首次下載 YouTube／IG 會更新引擎；之後若解析失敗，可手動更新。</string>
+    <string name="update_engine">更新下載引擎</string>
+    <string name="updating_engine">正在更新下載引擎...</string>
+    <string name="engine_updated">下載引擎已更新</string>
+    <string name="engine_update_failed">下載引擎更新失敗，請檢查網路後再試。</string>
+    <string name="cancel">取消</string>
+    <string name="download_cancelled">已取消</string>
+    <string name="busy">正在處理中，請完成或取消目前的下載。</string>
+    <string name="clipboard_empty">剪貼簿是空的</string>
+    <string name="link_pasted">已貼上連結</string>
+    <string name="analyzing_platform">正在分析 %1$s 影片...</string>
     <string name="download">下載</string>
     <string name="downloading">下載中...</string>
     <string name="download_complete">下載完成！</string>
     <string name="download_failed">下載失敗</string>
-    <string name="invalid_url">無效的 Facebook 網址</string>
+    <string name="invalid_url">請輸入 Facebook、YouTube、Instagram 或 Threads 影片網址</string>
     <string name="permission_required">需要儲存空間權限</string>
     <string name="grant_permission">授予權限</string>
     <string name="paste">貼上</string>

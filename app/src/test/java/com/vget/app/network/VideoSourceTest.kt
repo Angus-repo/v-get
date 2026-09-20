@@ -1,0 +1,64 @@
+package com.vget.app.network
+
+import org.junit.Assert.*
+import org.junit.Test
+
+class VideoSourceTest {
+    @Test fun youtubeVariantsSelectOnlyTheRequestedVideo() {
+        listOf(
+            "https://youtube.com/watch?v=BaW_jenozKc&list=PL123&index=2",
+            "https://youtu.be/BaW_jenozKc?si=tracking",
+            "https://m.youtube.com/shorts/BaW_jenozKc",
+            "https://www.youtube.com/embed/BaW_jenozKc",
+            "http://youtube.com/live/BaW_jenozKc",
+            "https://www.youtube-nocookie.com/embed/BaW_jenozKc",
+            "看看這支影片： https://youtu.be/BaW_jenozKc。"
+        ).forEach {
+            val source = VideoSource.parse(it)
+            assertEquals(it, VideoPlatform.YOUTUBE, source.platform)
+            assertEquals("https://www.youtube.com/watch?v=BaW_jenozKc", source.url)
+        }
+    }
+
+    @Test fun instagramPostsReelsAndShareLinks() {
+        listOf("p/ABC123", "reel/ABC123", "reels/ABC123", "tv/ABC123", "user/reel/ABC123", "user/p/ABC123", "share/reel/ABC123", "share/ABC123").forEach {
+            val source = VideoSource.parse("https://www.instagram.com/$it/?igsh=tracking")
+            assertEquals(VideoPlatform.INSTAGRAM, source.platform)
+            assertFalse(source.url.contains("igsh"))
+        }
+    }
+
+    @Test fun threadsOldAndNewDomainsAndShareFormats() {
+        listOf("threads.com", "www.threads.net").forEach { host ->
+            listOf("@user/post/C8_X-abc", "t/C8_X-abc").forEach { path ->
+                val source = VideoSource.parse("https://$host/$path?xmt=tracking")
+                assertEquals(VideoPlatform.THREADS, source.platform)
+                assertEquals("C8_X-abc", source.postId)
+                assertTrue(source.url.startsWith("https://www.threads.com/"))
+            }
+        }
+        assertNull(VideoSource.parse("https://threads.com/share/abc").postId)
+    }
+
+    @Test fun facebookKeepsVideoQueryAndNormalizesMobileHost() {
+        assertEquals("https://www.facebook.com/watch/?v=123", VideoSource.parse("m.facebook.com/watch/?v=123").url)
+        assertEquals(VideoPlatform.FACEBOOK, VideoSource.parse("https://fb.watch/abc/").platform)
+        assertEquals(VideoPlatform.FACEBOOK, VideoSource.parse("https://www.facebook.com/share/v/abc/").platform)
+    }
+
+    @Test fun rejectsUnsupportedAndDeceptiveUrlsBeforeNetworkAccess() {
+        listOf(
+            "", "not a URL", "file:///etc/passwd", "ftp://youtube.com/watch?v=BaW_jenozKc",
+            "https://youtube.com.evil.example/watch?v=BaW_jenozKc",
+            "https://evil.example/?next=https%3A%2F%2Fyoutube.com",
+            "https://youtube.com@evil.example/watch?v=BaW_jenozKc",
+            "https://user:password@youtube.com/watch?v=BaW_jenozKc",
+            "https://youtube.com:8080/watch?v=BaW_jenozKc",
+            "https://youtube.com/playlist?list=PL123", "https://youtube.com/watch?v=bad",
+            "https://instagram.com/username/", "https://instagram.com/stories/username/123",
+            "https://threads.com/@username", "https://facebook.com/"
+        ).forEach { url ->
+            assertThrows(url, IllegalArgumentException::class.java) { VideoSource.parse(url) }
+        }
+    }
+}

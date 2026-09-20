@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout 
+<androidx.core.widget.NestedScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background"
+    android:fillViewport="true"
     tools:context=".MainActivity">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="16dp">
 
     <!-- Header Card -->
     <com.google.android.material.card.MaterialCardView
@@ -39,7 +45,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="Facebook 影片下載器"
+                android:text="@string/supported_platforms"
                 android:textSize="14sp"
                 android:textColor="@color/white"
                 android:alpha="0.9"/>
@@ -70,7 +76,7 @@
                 android:id="@+id/urlInputLayout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/enter_facebook_url"
+                android:hint="@string/enter_video_url"
                 app:boxBackgroundMode="outline"
                 app:boxCornerRadiusTopStart="8dp"
                 app:boxCornerRadiusTopEnd="8dp"
@@ -112,6 +118,14 @@
                     android:paddingEnd="24dp"/>
 
             </LinearLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/updateEngineButton"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:text="@string/update_engine"/>
 
         </LinearLayout>
 
@@ -163,6 +177,14 @@
                 android:textSize="14sp"
                 android:textColor="@color/text_secondary"/>
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/cancelButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:text="@string/cancel"/>
+
         </LinearLayout>
 
     </com.google.android.material.card.MaterialCardView>
@@ -197,9 +219,17 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="1. 複製 Facebook 影片連結\n2. 點擊「貼上」按鈕\n3. 點擊「下載」開始下載\n4. 影片將儲存至 Downloads/V-Get 資料夾"
+                android:text="@string/usage_instructions"
                 android:textSize="14sp"
                 android:lineSpacingExtra="4dp"
+                android:textColor="@color/text_secondary"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/engine_hint"
+                android:textSize="12sp"
                 android:textColor="@color/text_secondary"/>
 
             <TextView
@@ -216,3 +246,4 @@
     </com.google.android.material.card.MaterialCardView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.core.widget.NestedScrollView>
