@@ -48,6 +48,61 @@ class ThreadsPageParserTest {
         assertNotNull(result)
     }
 
+    @Test fun sharePostWithInlineInstagramReelExposesItsVideoVersions() {
+        // Threads /share/BASlIr-pCj/ is a text post with an inline Instagram reel.
+        // Its own video_versions and carousel_media are both null.
+        val share = VideoSource.parse("https://www.threads.com/share/BASlIr-pCj/")
+        val result = ThreadsPageParser.parse(page("""[
+          {"shortcode":"Ddk7W0tn6t_","vanity":"@user"},
+          {"code":"RECOMMENDED","video_versions":[{"url":"https://video.fbcdn.net/wrong.mp4"}]},
+          {"code":"Ddk7W0tn6t_","media_type":19,"video_versions":null,"carousel_media":null,
+            "text_post_app_info":{"linked_inline_media":{
+              "code":"DbBTEp9RvUz","media_type":2,"has_audio":true,
+              "video_versions":[
+                {"type":101,"url":"https://video.cdninstagram.com/reel.mp4?sig=A%2FB+X%2B&token=1"},
+                {"type":102,"url":"https://video.cdninstagram.com/reel.mp4?sig=duplicate"},
+                {"type":103,"url":"https://video.cdninstagram.com/alternate.mp4?sig=other"}
+              ]
+            }}}
+        ]""", """<meta property="og:url" content="https://www.threads.com/@user/post/Ddk7W0tn6t_">"""), share)
+        assertNotNull(result)
+        assertEquals(2, result!!.qualities.size)
+        assertEquals("https://video.cdninstagram.com/reel.mp4?sig=A%2FB+X%2B&token=1", result.videoUrl)
+        assertTrue(result.qualities.all { it.resolution == null && !it.silent })
+        assertTrue(result.qualities.all { it.preview?.video?.url == it.directUrl })
+    }
+
+    @Test fun inlineCarouselSelectsFirstVideoWithoutTakingQuotedMedia() {
+        val result = ThreadsPageParser.parse(page("""{"code":"TARGET","text_post_app_info":{
+          "quoted_post":{"code":"QUOTED","video_url":"https://video.fbcdn.net/quoted.mp4"},
+          "linked_inline_media":{"code":"INSTAGRAM","carousel_media":[
+            {"media_type":1},
+            {"video_versions":[
+              {"url":"https://video.cdninstagram.com/low.mp4","width":360,"height":640},
+              {"url":"https://video.cdninstagram.com/high.mp4","width":720,"height":1280}]},
+            {"video_url":"https://video.cdninstagram.com/second.mp4"}
+          ]}
+        }}"""), source)!!
+        assertEquals(listOf(720, 360), result.qualities.map { it.resolution })
+        assertEquals("https://video.cdninstagram.com/high.mp4", result.videoUrl)
+    }
+
+    @Test fun ownVideoTakesPriorityOverInlineMedia() {
+        val result = ThreadsPageParser.parse(page("""{"code":"TARGET",
+          "video_url":"https://video.fbcdn.net/own.mp4",
+          "text_post_app_info":{"linked_inline_media":{"video_url":"https://video.fbcdn.net/inline.mp4"}}
+        }"""), source)
+        assertEquals("https://video.fbcdn.net/own.mp4", result?.videoUrl)
+    }
+
+    @Test fun inlineMediaIsOnlyReadFromTheRequestedPost() {
+        assertNull(ThreadsPageParser.parse(page("""[
+          {"code":"TARGET","text_post_app_info":{"linked_inline_media":null}},
+          {"code":"OTHER","text_post_app_info":{"linked_inline_media":{
+            "video_url":"https://video.fbcdn.net/wrong.mp4"}}}
+        ]"""), source))
+    }
+
     @Test fun exposesEveryDistinctResolutionAndKeepsItsExactMediaUrl() {
         val result = ThreadsPageParser.parse(page("""{"code":"TARGET","video_versions":[
           {"url":"https://video.fbcdn.net/low.mp4?sig=low","width":640,"height":360},

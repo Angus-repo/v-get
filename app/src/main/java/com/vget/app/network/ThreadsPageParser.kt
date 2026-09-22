@@ -32,14 +32,19 @@ internal object ThreadsPageParser {
             runCatching { JsonParser.parseString(script.data()) }.getOrNull()?.let { visit(it) }
         }
         for (post in matches) {
-            val qualities = videoQualities(post, source).ifEmpty { post.get("carousel_media")?.takeIf { it.isJsonArray }
-                ?.asJsonArray?.asSequence()?.filter { it.isJsonObject }
-                ?.map { videoQualities(it.asJsonObject, source) }?.firstOrNull { it.isNotEmpty() }.orEmpty() }
+            val qualities = attachedVideoQualities(post, source).ifEmpty {
+                // A Threads text post can display an Instagram reel inline. That
+                // media has its own shortcode and is not in the post's versions.
+                // Read only this explicit attachment of the matched post; never
+                // recursively select videos from quoted posts or recommendations.
+                post.objectValue("text_post_app_info")?.objectValue("linked_inline_media")
+                    ?.let { attachedVideoQualities(it, source) }.orEmpty()
+            }
             if (qualities.isNotEmpty()) {
                 return VideoExtractor.VideoInfo(qualities.first().directUrl!!, source.url, document.title().ifBlank { "Threads Video" }, qualities)
             }
         }
-        // A matched text/image-only post must not fall back to unrelated page media.
+        // A matched post with no attached video must not fall back to unrelated page media.
         if (matches.isNotEmpty()) return null
         if (canonicalSource?.postId != targetId) return null
         val metaUrl = sequenceOf("og:video:secure_url", "og:video:url", "og:video")
@@ -47,6 +52,13 @@ internal object ThreadsPageParser {
             .firstOrNull { isMediaUrl(it) } ?: return null
         return VideoExtractor.VideoInfo(metaUrl, source.url, document.title().ifBlank { "Threads Video" }, listOf(directQuality(metaUrl, source)))
     }
+
+    private fun attachedVideoQualities(media: JsonObject, source: VideoSource): List<VideoQuality> =
+        videoQualities(media, source).ifEmpty {
+            media.get("carousel_media")?.takeIf { it.isJsonArray }?.asJsonArray?.asSequence()
+                ?.filter { it.isJsonObject }?.map { videoQualities(it.asJsonObject, source) }
+                ?.firstOrNull { it.isNotEmpty() }.orEmpty()
+        }
 
     private fun videoQualities(media: JsonObject, source: VideoSource): List<VideoQuality> {
         val versions = media.get("video_versions")?.takeIf { it.isJsonArray }?.asJsonArray
@@ -73,5 +85,6 @@ internal object ThreadsPageParser {
     }
 
     private fun JsonObject.text(key: String): String? = get(key)?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString
+    private fun JsonObject.objectValue(key: String): JsonObject? = get(key)?.takeIf { it.isJsonObject }?.asJsonObject
     private fun JsonObject.number(key: String): Long = get(key)?.let { runCatching { it.asLong }.getOrNull() } ?: 0L
 }

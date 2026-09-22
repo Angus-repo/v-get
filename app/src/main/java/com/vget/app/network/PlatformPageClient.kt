@@ -8,16 +8,24 @@ import okhttp3.Request
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-internal class PlatformPageClient {
-    private val client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
+internal class PlatformPageClient(client: OkHttpClient = OkHttpClient()) {
+    private val client = client.newBuilder().followRedirects(false).followSslRedirects(false)
         .connectTimeout(20, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
 
     suspend fun extractThreads(source: VideoSource): VideoExtractor.VideoInfo {
+        var pageSource = source
         // Public link-preview pages sometimes contain media omitted from the regular HTML.
         for (agent in listOf(USER_AGENT, PREVIEW_USER_AGENT)) {
             currentCoroutineContext().ensureActive()
-            val (_, html) = fetch(source, agent)
-            ThreadsPageParser.parse(html, source)?.let { return it }
+            val (resolved, html) = fetch(pageSource, agent)
+            // A share token is not a post ID. Keep the validated redirect identity
+            // even when the returned page omits its canonical metadata.
+            if (pageSource.postId == null) {
+                pageSource = runCatching { VideoSource.parse(resolved) }.getOrNull()
+                    ?.takeIf { it.platform == VideoPlatform.THREADS && it.postId != null }
+                    ?: pageSource
+            }
+            ThreadsPageParser.parse(html, pageSource)?.let { return it }
         }
         throw IOException("找不到這篇 Threads 貼文的影片。請確認貼文公開且包含影片；需要登入的內容目前不支援。")
     }
@@ -40,7 +48,15 @@ internal class PlatformPageClient {
             currentCoroutineContext().ensureActive()
             val response = runInterruptible {
                 client.newCall(Request.Builder().url(url).header("User-Agent", agent)
-                    .header("Referer", source.platform.referer).build()).execute()
+                    .header("Referer", source.platform.referer)
+                    // Without navigation headers Threads may return only the app
+                    // shell for an Android share link, with no post or media data.
+                    .header("Accept", "text/html,application/xhtml+xml")
+                    .header("Sec-Fetch-Dest", "document")
+                    .header("Sec-Fetch-Mode", "navigate")
+                    .header("Sec-Fetch-Site", "none")
+                    .header("Upgrade-Insecure-Requests", "1")
+                    .build()).execute()
             }
             response.use {
                 if (it.isRedirect) {

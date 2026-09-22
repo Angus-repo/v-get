@@ -165,6 +165,7 @@ Depending on the Android version, the app may request:
 - Playback depends on the device's codec support. If a high-resolution codec cannot play, try an available H.264 option
 - Media URLs expire. Analyze the link again if preview or the chosen quality stops working
 - Threads selects the requested post ID from public page data; it never substitutes a recommended video
+- Instagram reels/videos attached inline to that Threads post are supported; quoted posts and arbitrary external links are not automatically followed
 - Threads support requires public progressive video URLs in the page. Login walls, DASH-only posts or layout changes may prevent extraction
 - Private-account videos require authentication (not supported)
 - Facebook Stories are not currently supported
