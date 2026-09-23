@@ -3,6 +3,8 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+apply from: rootProject.file('gradle/vget-signing.gradle')
+
 android {
     namespace 'com.vget.app'
     compileSdk 34

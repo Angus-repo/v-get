@@ -125,7 +125,9 @@ app/
    ./gradlew installDebug
    ```
 
-Pull requests and pushes to `main` also run the Android build in GitHub Actions. A successful run uploads `v-get-debug` containing an installable debug APK and the test/lint reports.
+APK builds use the retained V-Get 1.2.1 signing key, allowing later versions to update the installed app. Restore the private keystore and follow [Signing setup](docs/SIGNING.md); missing or different keys stop packaging.
+
+Pull requests run tests and lint without the signing key. Pushes to `main` and manual runs additionally build and upload `v-get-debug` using the `VGET_KEYSTORE_BASE64` repository secret. Configure that secret before using Actions to create APKs. Test/lint reports remain available on all runs.
 
 ## Tech Stack
 

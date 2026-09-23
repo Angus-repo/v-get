@@ -124,7 +124,9 @@ app/
    ./gradlew installDebug
    ```
 
-Pull Request 與推送至 `main` 時，也會執行 GitHub Actions Android 建置。成功後可在該次執行的產物下載 `v-get-debug`（可安裝的測試版 APK），並查看測試與 lint 報告。
+APK 固定沿用 V-Get 1.2.1 的簽章，後續版本可覆蓋更新。請先取回私人備份的金鑰並依[簽章設定](docs/SIGNING.md)配置；金鑰遺失或憑證不同時會停止打包。
+
+Pull Request 會執行不需簽章金鑰的測試與 lint。推送至 `main` 或手動執行時，另使用 repository secret `VGET_KEYSTORE_BASE64` 建置並提供 `v-get-debug` APK；首次使用前需設定此 Secret。各次執行都會提供測試與 lint 報告。
 
 ## 使用的技術與函式庫
 

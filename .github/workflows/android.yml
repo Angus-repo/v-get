@@ -20,14 +20,39 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
-      - name: Test, build and lint
-        run: ./gradlew testDebugUnitTest assembleDebug lintDebug --no-daemon
+      - name: Test and lint
+        run: ./gradlew testDebugUnitTest lintDebug --no-daemon
+      - name: Restore persistent signing key
+        if: github.event_name != 'pull_request'
+        env:
+          VGET_KEYSTORE_BASE64: ${{ secrets.VGET_KEYSTORE_BASE64 }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+          value = os.environ.get('VGET_KEYSTORE_BASE64', '')
+          if not value.strip():
+              raise SystemExit('Missing VGET_KEYSTORE_BASE64 repository secret. Restore the retained V-Get 1.2.1 signing key; do not generate a new key. See docs/SIGNING.md.')
+          os.umask(0o077)
+          target = Path(os.environ['RUNNER_TEMP']) / 'v-get.keystore'
+          target.write_bytes(base64.b64decode(''.join(value.split()), validate=True))
+          with open(os.environ['GITHUB_ENV'], 'a') as environment:
+              environment.write(f'VGET_KEYSTORE_FILE={target}\n')
+          PY
+      - name: Build APK with the retained signing key
+        if: github.event_name != 'pull_request'
+        run: ./gradlew assembleDebug --no-daemon
       - name: Upload debug APK
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: v-get-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - name: Remove temporary signing key
+        if: always() && github.event_name != 'pull_request'
+        run: rm -f -- "$RUNNER_TEMP/v-get.keystore"
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
