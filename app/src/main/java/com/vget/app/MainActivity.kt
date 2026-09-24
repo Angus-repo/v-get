@@ -6,7 +6,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.AdapterView
-import android.widget.ArrayAdapter
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
@@ -44,6 +44,13 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        if (resources.configuration.fontScale >= 1.5f) {
+            binding.inputActions.orientation = LinearLayout.VERTICAL
+            listOf(binding.pasteButton, binding.downloadButton).forEach { button ->
+                button.layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            }
+        }
         downloads = VideoDownloadService(applicationContext)
         binding.pasteButton.setOnClickListener { pasteFromClipboard() }
         binding.downloadButton.setOnClickListener { analyzeVideo() }
@@ -117,9 +124,8 @@ class MainActivity : AppCompatActivity() {
                 val video = downloads.inspect(source)
                 preparedVideo = video
                 binding.videoTitle.text = video.title
-                binding.qualitySpinner.adapter = ArrayAdapter(this@MainActivity,
-                    R.layout.quality_spinner_item, video.qualities.map { it.label }).apply {
-                    setDropDownViewResource(R.layout.quality_spinner_item)
+                binding.qualitySpinner.adapter = QualityAdapter(this@MainActivity, video.qualities) {
+                    binding.qualitySpinner.selectedItemPosition
                 }
                 binding.qualityCard.visibility = View.VISIBLE
                 binding.statusText.setText(R.string.quality_ready)
@@ -249,7 +255,6 @@ class MainActivity : AppCompatActivity() {
         binding.qualitySpinner.isEnabled = !busy
         binding.downloadSelectedButton.isEnabled = !busy && quality != null
         binding.downloadMp3Button.isEnabled = !busy && quality != null && !quality.silent
-        binding.qualitySizeText.text = getString(R.string.selected_file_size, quality?.fileSize?.label ?: getString(R.string.size_unavailable))
         binding.mp3Hint.text = if (quality?.silent == true) getString(R.string.mp3_no_audio)
             else getString(R.string.mp3_hint, quality?.mp3Size?.label ?: getString(R.string.size_unavailable))
         binding.previewButton.isEnabled = !busy && quality?.preview != null
@@ -263,12 +268,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun showError(message: String) {
         Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).setTextMaxLines(5)
-            .setBackgroundTint(getColor(R.color.error)).show()
+            .setBackgroundTint(getColor(R.color.error)).setTextColor(getColor(R.color.on_error)).show()
     }
 
     private fun showSuccess(message: String) {
         Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).setTextMaxLines(4)
-            .setBackgroundTint(getColor(R.color.success)).show()
+            .setBackgroundTint(getColor(R.color.success)).setTextColor(getColor(R.color.on_success)).show()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

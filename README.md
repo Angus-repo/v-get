@@ -2,6 +2,13 @@
 
 V-Get downloads public Facebook, YouTube, Instagram, Threads and Xiaohongshu/RedNote videos on Android. Paste a video link or the complete share text, or share it directly to V-Get from another app.
 
+## New in 1.3.2
+
+- Consistent light and dark palettes for surfaces, labels, quality selection, controls, and notifications; no fixed dark text on a dark card.
+- Split each quality into its name, format details, and a prominent capacity line. The selected option also has a check mark.
+- Group the page into input, video download, audio download, and progress sections. Larger text wraps naturally; input actions stack at 150% font scale and above. The engine update action lives under usage tips.
+- Retain the signing identity; versionCode is 7.
+
 ## Fixed in 1.3.1
 
 - Retry the selected Xiaohongshu format's explicitly published backup URLs when its primary video host fails, for both video and MP3. Never select another resolution or note.
@@ -16,7 +23,7 @@ V-Get downloads public Facebook, YouTube, Instagram, Threads and Xiaohongshu/Red
 - Download the selected audio as a real 192 kbps MP3. Separate YouTube audio is selected directly; other sources may require downloading the video before conversion. Silent sources cannot produce MP3 audio.
 - Both videos and MP3 files use `Downloads/V-Get/` and support playback after download.
 
-Login or verification redirects stop with an actionable message; this version does not add login or cookie import. Version 1.3.1 (versionCode 6) retains the existing 1.2.1 signing key.
+Login or verification redirects stop with an actionable message; this version does not add login or cookie import. Version 1.3.2 (versionCode 7) retains the existing 1.2.1 signing key.
 
 > Looking for the Traditional Chinese guide? Check out [README_zh_TW.md](README_zh_TW.md).
 

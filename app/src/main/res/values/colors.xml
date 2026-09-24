@@ -1,21 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
-    
-    <!-- Custom colors -->
-    <color name="facebook_blue">#1877F2</color>
-    <color name="primary_dark">#1565C0</color>
-    <color name="accent">#FF4081</color>
-    <color name="background">#F5F5F5</color>
+    <color name="background">#F3F6FA</color>
     <color name="card_background">#FFFFFF</color>
-    <color name="text_primary">#212121</color>
-    <color name="text_secondary">#757575</color>
-    <color name="success">#4CAF50</color>
-    <color name="error">#F44336</color>
+    <color name="selector_background">#EDF2F8</color>
+    <color name="selected_background">#E5EFFF</color>
+    <color name="text_primary">#172B4D</color>
+    <color name="text_secondary">#43546C</color>
+    <color name="primary">#175CD3</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="outline">#66788F</color>
+    <color name="divider">#D5DFEB</color>
+    <color name="disabled_background">#DDE4ED</color>
+    <color name="disabled_text">#526176</color>
+    <color name="status_bar">#123C7A</color>
+    <color name="success">#E8F5EC</color>
+    <color name="on_success">#14532D</color>
+    <color name="error">#FDECEC</color>
+    <color name="on_error">#8C1D18</color>
+    <color name="error_text">#B42318</color>
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
 </resources>

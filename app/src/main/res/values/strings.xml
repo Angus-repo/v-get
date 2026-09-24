@@ -1,8 +1,14 @@
 <resources>
     <string name="app_name">V-Get</string>
-    <string name="enter_video_url">貼上影片連結或分享文字</string>
+    <string name="input_section">1　貼上分享連結</string>
+    <string name="quality_section">2　選擇畫質</string>
+    <string name="audio_section">只下載音訊</string>
+    <string name="help_section">使用提示</string>
+    <string name="source_quality">來源畫質（解析度未提供）</string>
+    <string name="no_audio_track">無音軌</string>
+    <string name="enter_video_url">網址或分享文字</string>
     <string name="supported_platforms">Facebook · YouTube · Instagram · Threads · 小紅書</string>
-    <string name="usage_instructions">1. 貼上影片連結或整段分享文字，點擊「分析畫質」\n2. 選擇畫質並查看容量，可先試播\n3. 下載影片，或選擇「下載 MP3 音訊」\n4. 完成後可播放上次下載的檔案\n多影片貼文只下載第一支影片。標示「約」的容量為估算值。</string>
+    <string name="usage_instructions">可直接貼上中文＋網址的整段分享文字。多影片貼文只下載第一支影片。\n標示「約」的容量為估算值。</string>
     <string name="engine_hint">僅支援不需登入的公開影片。首次分析 YouTube／IG 會更新引擎；之後若解析失敗，可手動更新。</string>
     <string name="analyze_quality">分析畫質</string>
     <string name="choose_quality">選擇畫質</string>
@@ -10,10 +16,10 @@
     <string name="choose_quality_hint">僅列出來源提供的畫質。試播需要網路連線。</string>
     <string name="single_quality">來源目前只提供一種可用畫質。</string>
     <string name="preview_unavailable">此畫質無法直接試播，下載完成後可播放。</string>
-    <string name="preview_selected">試播所選畫質</string>
-    <string name="download_selected">下載所選畫質</string>
+    <string name="preview_selected">試播影片</string>
+    <string name="download_selected">下載影片</string>
     <string name="download_mp3">下載 MP3 音訊</string>
-    <string name="mp3_hint">MP3 · 192 kbps · %1$s（轉換後容量可能略有差異）</string>
+    <string name="mp3_hint">MP3 · 192 kbps\n%1$s · 轉換後容量可能略有差異</string>
     <string name="mp3_no_audio">所選畫質沒有音軌，無法下載 MP3。</string>
     <string name="selected_file_size">影片容量：%1$s</string>
     <string name="size_unavailable">容量未提供</string>
