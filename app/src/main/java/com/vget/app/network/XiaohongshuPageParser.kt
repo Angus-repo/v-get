@@ -40,8 +40,8 @@ internal object XiaohongshuPageParser {
             }.mapNotNull { format ->
                 val backups = format.get("backupUrls")?.takeIf { it.isJsonArray }?.asJsonArray
                     ?.mapNotNull { it.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString }.orEmpty()
-                val url = (listOfNotNull(format.text("masterUrl")) + backups).firstNotNullOfOrNull(::mediaUrl)
-                    ?: return@mapNotNull null
+                val urls = (listOfNotNull(format.text("masterUrl")) + backups).mapNotNull(::mediaUrl).distinct()
+                val url = urls.firstOrNull() ?: return@mapNotNull null
                 // Stream durations use milliseconds; the shared video metadata uses seconds.
                 val duration = format.number("duration")?.div(1_000)?.takeIf { it > 0 }
                     ?: metadata?.number("duration")?.takeIf { it > 0 }
@@ -52,6 +52,7 @@ internal object XiaohongshuPageParser {
                     width = format.number("width")?.toInt()?.takeIf { it > 0 },
                     height = format.number("height")?.toInt()?.takeIf { it > 0 },
                     silent = silent, fileSize = size, durationSeconds = duration).copy(
+                    directFallbackUrls = urls.drop(1),
                     fps = format.number("fps")?.roundToInt()?.takeIf { it > 0 },
                     codec = when (format.text("videoCodec")?.lowercase()) {
                         "h264", "avc", "avc1" -> "H.264"

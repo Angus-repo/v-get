@@ -90,7 +90,7 @@ internal class PlatformPageClient(client: OkHttpClient = OkHttpClient()) {
                         next.username.isEmpty() && next.password.isEmpty() && next.port == 443) { "分享連結導向不支援的網站" }
                     url = next.toString()
                 } else {
-                    if (!it.isSuccessful) throw IOException("${source.platform.displayName} 連線失敗（HTTP ${it.code}）")
+                    if (!it.isSuccessful) throw HttpStatusException(it.code, "${source.platform.displayName} 分享頁連線失敗")
                     return url to runInterruptible { it.body?.string().orEmpty() }
                 }
             }

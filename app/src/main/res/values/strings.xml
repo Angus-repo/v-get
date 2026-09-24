@@ -35,6 +35,9 @@
     <string name="downloading">下載中...</string>
     <string name="download_complete">下載完成！</string>
     <string name="download_failed">下載失敗</string>
+    <string name="analysis_error_detail">分析畫質失敗：%1$s</string>
+    <string name="video_error_detail">下載影片失敗：%1$s</string>
+    <string name="mp3_error_detail">下載 MP3 失敗：%1$s</string>
     <string name="invalid_url">請輸入 Facebook、YouTube、Instagram、Threads 或小紅書影片網址或分享文字</string>
     <string name="permission_required">需要儲存空間權限</string>
     <string name="grant_permission">授予權限</string>

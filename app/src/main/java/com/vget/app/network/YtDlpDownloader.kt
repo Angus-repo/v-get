@@ -66,20 +66,29 @@ internal class YtDlpDownloader(context: Context) {
             if (format == DownloadFormat.MP3 && quality.directUrl != null) runInterruptible(Dispatchers.IO) { initialize() }
             else prepareEngine()
             runInterruptible(Dispatchers.IO) { check(directory.mkdirs()) { "無法建立下載暫存資料夾" } }
-            val manifest = File(directory, "completed.txt")
-            val request = if (format == DownloadFormat.MP3) buildMp3Request(source, directory, manifest, quality)
-                else buildRequest(source.url, directory, manifest, quality)
-            runInterruptible(Dispatchers.IO) {
-                YoutubeDL.getInstance().execute(request, id) { progress, _, _ ->
-                    if (format == DownloadFormat.MP3 && progress >= 100) {
-                        trySend(VideoDownloader.DownloadProgress.Processing("正在轉換 MP3 音訊..."))
-                    } else if (progress >= 0) trySend(VideoDownloader.DownloadProgress.Progress(progress.toInt().coerceIn(0, 99)))
+            val file = withMediaFallback(quality,
+                onRetry = { send(VideoDownloader.DownloadProgress.Processing("正在嘗試同畫質的備援來源...")) }) { candidate ->
+                // Do not mix a failed replica's partial files with a fresh attempt.
+                runInterruptible(Dispatchers.IO) {
+                    YoutubeDL.getInstance().destroyProcessById(id)
+                    directory.listFiles()?.forEach { check(it.deleteRecursively()) { "無法清理下載暫存檔" } }
                 }
+                val manifest = File(directory, "completed.txt")
+                val request = if (format == DownloadFormat.MP3) buildMp3Request(source, directory, manifest, candidate)
+                    else buildRequest(source.url, directory, manifest, candidate)
+                runInterruptible(Dispatchers.IO) {
+                    YoutubeDL.getInstance().execute(request, id) { progress, _, _ ->
+                        if (format == DownloadFormat.MP3 && progress >= 100) {
+                            trySend(VideoDownloader.DownloadProgress.Processing("正在轉換 MP3 音訊..."))
+                        } else if (progress >= 0) trySend(VideoDownloader.DownloadProgress.Progress(progress.toInt().coerceIn(0, 99)))
+                    }
+                }
+                currentCoroutineContext().ensureActive()
+                withContext(Dispatchers.IO) { completedFile(directory, manifest, format) }
             }
             currentCoroutineContext().ensureActive()
             send(VideoDownloader.DownloadProgress.Processing(if (format == DownloadFormat.MP3) "正在儲存 MP3 音訊..." else "正在儲存影片..."))
             val saved = withContext(Dispatchers.IO) {
-                val file = completedFile(directory, manifest, format)
                 VideoStorage(context).save(file, "${source.platform.name.lowercase()}_$id.${file.extension}")
             }
             send(VideoDownloader.DownloadProgress.Completed(saved))

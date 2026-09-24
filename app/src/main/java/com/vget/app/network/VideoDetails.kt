@@ -41,8 +41,11 @@ data class VideoQuality(
     val preview: VideoPreview? = null,
     val fileSize: MediaFileSize? = null,
     val durationSeconds: Double? = null,
-    val audioFormatSelector: String? = null
+    val audioFormatSelector: String? = null,
+    val directFallbackUrls: List<String> = emptyList()
 ) {
+    internal val directCandidates: List<String> get() =
+        if (directUrl == null) emptyList() else (listOf(directUrl) + directFallbackUrls).distinct()
     val mp3Size: MediaFileSize? get() = durationSeconds?.takeIf { it.isFinite() && it > 0 }
         ?.times(192_000.0 / 8)?.takeIf { it < Long.MAX_VALUE }?.toLong()?.takeIf { it > 0 }
         ?.let { MediaFileSize(it, approximate = true) }

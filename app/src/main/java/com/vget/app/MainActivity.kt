@@ -128,7 +128,7 @@ class MainActivity : AppCompatActivity() {
                 throw e
             } catch (e: Exception) {
                 binding.statusText.setText(R.string.error_parse)
-                showError(DownloadErrors.message(e, source.platform))
+                showError(getString(R.string.analysis_error_detail, DownloadErrors.message(e, source.platform)))
             } finally {
                 setBusy(false)
             }
@@ -188,7 +188,7 @@ class MainActivity : AppCompatActivity() {
                         }
                         is DownloadProgress.Error -> {
                             binding.statusText.setText(R.string.download_failed)
-                            showError(progress.message)
+                            showError(getString(if (format == DownloadFormat.MP3) R.string.mp3_error_detail else R.string.video_error_detail, progress.message))
                         }
                     }
                 }
@@ -197,7 +197,8 @@ class MainActivity : AppCompatActivity() {
                 throw e
             } catch (e: Exception) {
                 binding.statusText.setText(R.string.download_failed)
-                showError(DownloadErrors.message(e, video.source.platform))
+                showError(getString(if (format == DownloadFormat.MP3) R.string.mp3_error_detail else R.string.video_error_detail,
+                    DownloadErrors.message(e, video.source.platform)))
             } finally {
                 setBusy(false)
             }

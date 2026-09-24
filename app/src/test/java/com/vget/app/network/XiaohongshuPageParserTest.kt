@@ -74,6 +74,16 @@ class XiaohongshuPageParserTest {
             page(note("{}")))) assertNull(XiaohongshuPageParser.parse(html, source))
     }
 
+    @Test fun preservesOnlyExplicitReplicasOfTheSelectedFormat() {
+        val backup = "https://sns-bak-v11.xhscdn.com/720.mp4?sign=A%2FB+C"
+        val streams = """{"h264":[{"masterUrl":"$url","width":720,"height":1280,
+            "backupUrls":["${backup.replace("https:", "http:")}","https://evil.example/v.mp4","$url","$backup"]}],
+            "h265":[{"masterUrl":"https://sns-video-v14.xhscdn.com/other.mp4","width":1080,"height":1920}]}"""
+        val selected = XiaohongshuPageParser.parse(page(note(streams)), source)!!.qualities.single { it.resolution == 720 }
+        assertEquals(listOf(url, backup), selected.directCandidates)
+        assertEquals(listOf(backup), selected.directFallbackUrls)
+    }
+
     @Test fun unknownDimensionsAndSizesStayUnknown() {
         val info = XiaohongshuPageParser.parse(page(note("""{"h264":[{"masterUrl":"$url","size":0}]}""")), source)!!
         assertNull(info.qualities.single().resolution)
