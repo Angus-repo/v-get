@@ -5,6 +5,32 @@ import org.junit.Test
 
 class YtDlpMetadataParserTest {
     private val source = VideoSource.parse("https://youtube.com/watch?v=BaW_jenozKc")
+    @Test fun includesPairedAudioInCapacityAndPreservesExactAudioSelectionForMp3() {
+        val info = """{"duration":60,"formats":[
+            {"format_id":"140","ext":"m4a","vcodec":"none","acodec":"aac","filesize":1000000,"url":"https://cdn.example/a.m4a"},
+            {"format_id":"137","ext":"mp4","height":1080,"vcodec":"avc1","acodec":"none","filesize":9000000,"url":"https://cdn.example/v.mp4"}
+        ]}"""
+        val quality = YtDlpMetadataParser.parse(info, source).qualities.single()
+        assertEquals(MediaFileSize(10_000_000, true), quality.fileSize)
+        assertEquals("140", quality.audioFormatSelector)
+        assertEquals(MediaFileSize(1_440_000, true), quality.mp3Size)
+        assertTrue(quality.label.contains("約 10.0 MB"))
+    }
+
+    @Test fun combinedExactEstimatedBitrateAndUnknownCapacitiesAreDistinguished() {
+        val info = """{"duration":10,"formats":[
+            {"format_id":"exact","ext":"mp4","height":1080,"vcodec":"avc1","filesize":4000000,"url":"https://cdn.example/1.mp4"},
+            {"format_id":"approx","ext":"mp4","height":720,"vcodec":"avc1","filesize_approx":3000000,"url":"https://cdn.example/2.mp4"},
+            {"format_id":"rate","ext":"mp4","height":480,"vcodec":"avc1","tbr":800,"url":"https://cdn.example/3.mp4"},
+            {"format_id":"unknown","ext":"mp4","height":360,"vcodec":"avc1","url":"https://cdn.example/4.mp4"}
+        ]}"""
+        val qualities = YtDlpMetadataParser.parse(info, source).qualities
+        assertEquals(MediaFileSize(4_000_000), qualities[0].fileSize)
+        assertEquals(MediaFileSize(3_000_000, true), qualities[1].fileSize)
+        assertEquals(MediaFileSize(1_000_000, true), qualities[2].fileSize)
+        assertNull(qualities[3].fileSize)
+        assertTrue(qualities[3].label.contains("容量未提供"))
+    }
     private val metadata = """{
       "title":"A sample video", "http_headers":{"User-Agent":"sample-agent","Referer":"https://youtube.com/"},
       "formats":[

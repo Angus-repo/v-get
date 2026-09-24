@@ -14,6 +14,8 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import com.vget.app.databinding.ActivityMainBinding
 import com.vget.app.network.DownloadErrors
+import com.vget.app.network.DownloadFormat
+import com.vget.app.network.formatBytes
 import com.vget.app.network.MediaStream
 import com.vget.app.network.SavedVideo
 import com.vget.app.network.VideoDetails
@@ -33,7 +35,8 @@ class MainActivity : AppCompatActivity() {
     private var activeJob: Job? = null
     private var busy = false
     private var preparedVideo: VideoDetails? = null
-    private var pendingDownload: Pair<VideoDetails, VideoQuality>? = null
+    private data class PendingDownload(val video: VideoDetails, val quality: VideoQuality, val format: DownloadFormat)
+    private var pendingDownload: PendingDownload? = null
     private var savedVideo: SavedVideo? = null
     private var savedTitle = ""
 
@@ -45,6 +48,7 @@ class MainActivity : AppCompatActivity() {
         binding.pasteButton.setOnClickListener { pasteFromClipboard() }
         binding.downloadButton.setOnClickListener { analyzeVideo() }
         binding.downloadSelectedButton.setOnClickListener { requestDownload() }
+        binding.downloadMp3Button.setOnClickListener { requestDownload(DownloadFormat.MP3) }
         binding.previewButton.setOnClickListener { previewSelected() }
         binding.playDownloadedButton.setOnClickListener {
             savedVideo?.let { PlayerActivity.open(this, VideoPreview(MediaStream(it.uri, mimeType = it.mimeType)), savedTitle) }
@@ -114,8 +118,8 @@ class MainActivity : AppCompatActivity() {
                 preparedVideo = video
                 binding.videoTitle.text = video.title
                 binding.qualitySpinner.adapter = ArrayAdapter(this@MainActivity,
-                    android.R.layout.simple_spinner_item, video.qualities.map { it.label }).apply {
-                    setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                    R.layout.quality_spinner_item, video.qualities.map { it.label }).apply {
+                    setDropDownViewResource(R.layout.quality_spinner_item)
                 }
                 binding.qualityCard.visibility = View.VISIBLE
                 binding.statusText.setText(R.string.quality_ready)
@@ -141,23 +145,24 @@ class MainActivity : AppCompatActivity() {
         PlayerActivity.open(this, preview, "${video.title}\n${quality.label}")
     }
 
-    private fun requestDownload() {
+    private fun requestDownload(format: DownloadFormat = DownloadFormat.VIDEO) {
         if (busy) return
         val video = preparedVideo ?: return
         val quality = selectedQuality() ?: return
-        if (PermissionHelper.hasStoragePermission(this)) startDownload(video, quality)
+        if (format == DownloadFormat.MP3 && quality.silent) return
+        if (PermissionHelper.hasStoragePermission(this)) startDownload(video, quality, format)
         else {
-            pendingDownload = video to quality
+            pendingDownload = PendingDownload(video, quality, format)
             PermissionHelper.requestStoragePermission(this)
         }
     }
 
-    private fun startDownload(video: VideoDetails, quality: VideoQuality) {
+    private fun startDownload(video: VideoDetails, quality: VideoQuality, format: DownloadFormat) {
         activeJob = lifecycleScope.launch {
             setBusy(true)
             binding.statusText.setText(R.string.downloading)
             try {
-                downloads.download(video, quality).collect { progress ->
+                downloads.download(video, quality, format).collect { progress ->
                     when (progress) {
                         DownloadProgress.Starting -> binding.statusText.setText(R.string.downloading)
                         is DownloadProgress.Processing -> {
@@ -174,7 +179,7 @@ class MainActivity : AppCompatActivity() {
                         }
                         is DownloadProgress.Completed -> {
                             savedVideo = progress.video
-                            savedTitle = "${video.title}\n${quality.label}"
+                            savedTitle = "${video.title}\n${if (format == DownloadFormat.MP3) "MP3 · 192 kbps" else quality.label}"
                             binding.progressBar.isIndeterminate = false
                             binding.progressBar.progress = 100
                             binding.progressText.text = "100%"
@@ -242,6 +247,10 @@ class MainActivity : AppCompatActivity() {
         val quality = selectedQuality()
         binding.qualitySpinner.isEnabled = !busy
         binding.downloadSelectedButton.isEnabled = !busy && quality != null
+        binding.downloadMp3Button.isEnabled = !busy && quality != null && !quality.silent
+        binding.qualitySizeText.text = getString(R.string.selected_file_size, quality?.fileSize?.label ?: getString(R.string.size_unavailable))
+        binding.mp3Hint.text = if (quality?.silent == true) getString(R.string.mp3_no_audio)
+            else getString(R.string.mp3_hint, quality?.mp3Size?.label ?: getString(R.string.size_unavailable))
         binding.previewButton.isEnabled = !busy && quality?.preview != null
         binding.qualityHint.setText(if (quality?.preview == null) R.string.preview_unavailable
             else if (preparedVideo?.qualities?.size == 1) R.string.single_quality else R.string.choose_quality_hint)
@@ -249,11 +258,7 @@ class MainActivity : AppCompatActivity() {
         binding.playDownloadedButton.isEnabled = !busy
     }
 
-    private fun formatFileSize(bytes: Long): String = when {
-        bytes < 1024 -> "$bytes B"
-        bytes < 1024 * 1024 -> String.format("%.1f KB", bytes / 1024.0)
-        else -> String.format("%.1f MB", bytes / (1024.0 * 1024.0))
-    }
+    private fun formatFileSize(bytes: Long): String = formatBytes(bytes)
 
     private fun showError(message: String) {
         Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).setTextMaxLines(5)
@@ -281,7 +286,7 @@ class MainActivity : AppCompatActivity() {
         val pending = pendingDownload
         pendingDownload = null
         if (PermissionHelper.isPermissionGranted(grantResults)) {
-            if (pending != null && pending.first == preparedVideo && !busy) startDownload(pending.first, pending.second)
+            if (pending != null && pending.video == preparedVideo && !busy) startDownload(pending.video, pending.quality, pending.format)
         } else showError(getString(R.string.permission_required))
     }
 }

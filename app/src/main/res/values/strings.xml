@@ -1,8 +1,8 @@
 <resources>
     <string name="app_name">V-Get</string>
     <string name="enter_video_url">貼上影片連結或分享文字</string>
-    <string name="supported_platforms">Facebook · YouTube · Instagram · Threads</string>
-    <string name="usage_instructions">1. 貼上影片連結，點擊「分析畫質」\n2. 選擇來源提供的畫質，可先試播\n3. 點擊「下載所選畫質」\n4. 完成後可播放上次下載的影片\n多影片貼文只下載第一支影片。</string>
+    <string name="supported_platforms">Facebook · YouTube · Instagram · Threads · 小紅書</string>
+    <string name="usage_instructions">1. 貼上影片連結或整段分享文字，點擊「分析畫質」\n2. 選擇畫質並查看容量，可先試播\n3. 下載影片，或選擇「下載 MP3 音訊」\n4. 完成後可播放上次下載的檔案\n多影片貼文只下載第一支影片。標示「約」的容量為估算值。</string>
     <string name="engine_hint">僅支援不需登入的公開影片。首次分析 YouTube／IG 會更新引擎；之後若解析失敗，可手動更新。</string>
     <string name="analyze_quality">分析畫質</string>
     <string name="choose_quality">選擇畫質</string>
@@ -12,6 +12,11 @@
     <string name="preview_unavailable">此畫質無法直接試播，下載完成後可播放。</string>
     <string name="preview_selected">試播所選畫質</string>
     <string name="download_selected">下載所選畫質</string>
+    <string name="download_mp3">下載 MP3 音訊</string>
+    <string name="mp3_hint">MP3 · 192 kbps · %1$s（轉換後容量可能略有差異）</string>
+    <string name="mp3_no_audio">所選畫質沒有音軌，無法下載 MP3。</string>
+    <string name="selected_file_size">影片容量：%1$s</string>
+    <string name="size_unavailable">容量未提供</string>
     <string name="play_downloaded">播放上次下載</string>
     <string name="back_to_quality">返回畫質選擇</string>
     <string name="preview_failed">無法試播。請檢查網路、重新分析連結或選擇其他畫質；也可下載完成後播放。部分編碼可能不受裝置支援。</string>
@@ -30,7 +35,7 @@
     <string name="downloading">下載中...</string>
     <string name="download_complete">下載完成！</string>
     <string name="download_failed">下載失敗</string>
-    <string name="invalid_url">請輸入 Facebook、YouTube、Instagram 或 Threads 影片網址</string>
+    <string name="invalid_url">請輸入 Facebook、YouTube、Instagram、Threads 或小紅書影片網址或分享文字</string>
     <string name="permission_required">需要儲存空間權限</string>
     <string name="grant_permission">授予權限</string>
     <string name="paste">貼上</string>
@@ -39,5 +44,5 @@
     <string name="status_analyzing">正在分析影片...</string>
     <string name="error_network">網路連線錯誤</string>
     <string name="error_parse">無法解析影片網址</string>
-    <string name="video_saved">影片已儲存至：%1$s</string>
+    <string name="video_saved">檔案已儲存至：%1$s</string>
 </resources>

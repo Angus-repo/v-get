@@ -148,6 +148,8 @@
             <Spinner android:id="@+id/qualitySpinner" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:minHeight="48dp" android:spinnerMode="dialog"
                 android:prompt="@string/choose_quality" />
+            <TextView android:id="@+id/qualitySizeText" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginBottom="4dp" android:textSize="14sp" android:textColor="@color/text_primary" />
             <TextView android:id="@+id/qualityHint" android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:textSize="12sp" android:textColor="@color/text_secondary" android:text="@string/choose_quality_hint" />
             <com.google.android.material.button.MaterialButton android:id="@+id/previewButton"
@@ -157,6 +159,12 @@
             <com.google.android.material.button.MaterialButton android:id="@+id/downloadSelectedButton"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:text="@string/download_selected" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/downloadMp3Button"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="@string/download_mp3" />
+            <TextView android:id="@+id/mp3Hint" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="12sp" android:textColor="@color/text_secondary" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 

@@ -1,12 +1,21 @@
 # V-Get - Social Video Downloader
 
-V-Get downloads public Facebook, YouTube, Instagram and Threads videos on Android. Paste a video link or share it directly to V-Get from another app.
+V-Get downloads public Facebook, YouTube, Instagram, Threads and Xiaohongshu/RedNote videos on Android. Paste a video link or the complete share text, or share it directly to V-Get from another app.
+
+## New in 1.3.0
+
+- Xiaohongshu/RedNote video notes, including `xhslink.cn` and `xhslink.com` short links embedded in Chinese share text. Required share tokens are preserved; only streams attached to the requested note are selected.
+- Quality choices show file size. Source metadata and HTTP headers supply exact sizes when available; bitrate estimates, merged streams and MP3 estimates are labelled approximate. Unknown sizes remain explicitly unavailable.
+- Download the selected audio as a real 192 kbps MP3. Separate YouTube audio is selected directly; other sources may require downloading the video before conversion. Silent sources cannot produce MP3 audio.
+- Both videos and MP3 files use `Downloads/V-Get/` and support playback after download.
+
+Login or verification redirects stop with an actionable message; this version does not add login or cookie import. Version 1.3.0 (versionCode 5) retains the existing 1.2.1 signing key.
 
 > Looking for the Traditional Chinese guide? Check out [README_zh_TW.md](README_zh_TW.md).
 
 ## Features
 - ✨ Clean and intuitive user interface
-- 📱 Facebook videos, YouTube videos/Shorts, Instagram posts/Reels and Threads video posts
+- 📱 Facebook videos, YouTube videos/Shorts, Instagram posts/Reels, Threads and Xiaohongshu video posts
 - 📊 Real-time download progress updates
 - 💾 Automatically saves to the `Downloads/V-Get` folder
 - 🔐 Handles runtime permissions for you
@@ -59,6 +68,7 @@ YouTube/Instagram choices show the reported resolution, frame rate and container
 | YouTube | `youtube.com/watch?v=VIDEO_ID`, `youtu.be/VIDEO_ID`, `youtube.com/shorts/VIDEO_ID` |
 | Instagram | `instagram.com/p/CODE/`, `instagram.com/reel/CODE/`, `instagram.com/tv/CODE/`, share links |
 | Threads | `threads.com/@user/post/CODE`, `threads.net/@user/post/CODE`, `threads.com/t/CODE`, `threads.com/share/CODE` |
+| Xiaohongshu/RedNote | `xhslink.cn/o/CODE`, `xhslink.com/m/CODE`, `xiaohongshu.com/explore/NOTE_ID`, `xiaohongshu.com/discovery/item/NOTE_ID`, `rednote.com/explore/NOTE_ID` |
 
 ## Project Structure
 

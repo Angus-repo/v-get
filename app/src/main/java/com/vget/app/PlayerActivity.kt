@@ -49,7 +49,7 @@ class PlayerActivity : AppCompatActivity() {
             player = ExoPlayer.Builder(this).build().also {
                 binding.playerView.player = it
                 it.setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
+                    .setContentType(if (video.mimeType?.startsWith("audio/") == true) C.AUDIO_CONTENT_TYPE_MUSIC else C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
                 it.setHandleAudioBecomingNoisy(true)
                 it.addListener(object : Player.Listener {
                     override fun onPlayerError(error: PlaybackException) {

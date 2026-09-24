@@ -38,12 +38,23 @@ internal object YtDlpMetadataParser {
                 ext == "webm" && (audio == null || audio.text("ext") == "webm") -> "webm"
                 else -> "mkv"
             }
+            val duration = video.number("duration") ?: info.number("duration")
+            val videoSize = fileSize(video, duration)
+            val audioSize = audio?.let { fileSize(it, duration) }
+            val size = if (audio == null) videoSize else if (videoSize != null && audioSize != null &&
+                videoSize.bytes <= Long.MAX_VALUE - audioSize.bytes) {
+                // Remuxing changes container overhead, so the sum is an estimate.
+                MediaFileSize(videoSize.bytes + audioSize.bytes, approximate = true)
+            } else null
             Candidate(VideoQuality(
                 id = selector, width = video.positiveInt("width"), height = video.positiveInt("height"),
                 fps = video.number("fps")?.takeIf { it > 0 }?.roundToInt(), container = container,
                 codec = codecName(video.text("vcodec")),
                 silent = video.text("acodec") == "none" && audio == null,
                 formatSelector = selector,
+                audioFormatSelector = audio?.text("format_id") ?: video.text("format_id")
+                    ?.takeIf { video.text("acodec") != "none" },
+                fileSize = size, durationSeconds = duration?.takeIf { it > 0 },
                 preview = if (videoPreview != null && (audio == null || audioPreview != null)) VideoPreview(videoPreview, audioPreview) else null
             ), video.number("tbr") ?: 0.0)
         }
@@ -66,6 +77,15 @@ internal object YtDlpMetadataParser {
             } else quality
         }
         return VideoDetails(source, info.text("title") ?: "${source.platform.displayName} Video", labelledChoices)
+    }
+
+    private fun fileSize(format: JsonObject, duration: Double?): MediaFileSize? {
+        fun valid(value: Double?) = value?.takeIf { it.isFinite() && it > 0 && it < Long.MAX_VALUE }?.toLong()?.takeIf { it > 0 }
+        valid(format.number("filesize"))?.let { return MediaFileSize(it) }
+        valid(format.number("filesize_approx"))?.let { return MediaFileSize(it, true) }
+        val bitrate = format.number("tbr") ?: format.number("abr")
+        return if (duration != null && duration > 0 && bitrate != null && bitrate > 0)
+            valid(duration * bitrate * 1_000 / 8)?.let { MediaFileSize(it, true) } else null
     }
 
     private fun firstVideo(info: JsonObject): JsonObject? {

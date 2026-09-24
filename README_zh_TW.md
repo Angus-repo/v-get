@@ -1,11 +1,20 @@
 # V-Get - 社群影片下載器
 
-下載 Facebook、YouTube、Instagram 與 Threads 公開影片的 Android 應用程式。可貼上影片連結，也可從其他 App 直接分享至 V-Get。
+下載 Facebook、YouTube、Instagram、Threads 與小紅書公開影片的 Android 應用程式。可貼上影片連結或整段分享文字，也可從其他 App 直接分享至 V-Get。
+
+## 1.3.0 新增功能
+
+- 小紅書／RedNote 影片筆記：自動辨識中文分享文字中的 `xhslink.cn`、`xhslink.com` 短網址，以及完整筆記網址；保留 `xsec_token` 等必要參數，只解析指定筆記的公開影片。
+- 選擇解析度時同時顯示檔案容量。使用來源提供的大小，或從影片標頭查詢；位元率估算、影音合併及 MP3 容量會標示「約」。無法取得時顯示「容量未提供」。
+- 「下載 MP3 音訊」會將所選影片的音軌轉為 192 kbps MP3。YouTube 分離影音只下載已配對的音軌；其他來源可能需先暫存影片。沒有音軌時無法轉換。
+- 影片與 MP3 均存入 `Downloads/V-Get/`，下載完成後可在 App 內播放。
+
+小紅書若導向登入或驗證頁，會提示限制，不會改抓其他筆記。本版本不提供登入或 Cookie 匯入。保留 1.2.1 的固定簽章，版本號為 1.3.0（versionCode 5）。
 
 ## 功能特色
 
 - ✨ 簡潔直觀的使用者介面
-- 📱 支援 Facebook、YouTube／Shorts、Instagram 貼文／Reels、Threads 影片貼文
+- 📱 支援 Facebook、YouTube／Shorts、Instagram 貼文／Reels、Threads 與小紅書影片貼文
 - 📊 即時下載進度顯示
 - 💾 自動儲存至 Downloads/V-Get 資料夾
 - 🔐 完整的權限管理
@@ -58,6 +67,7 @@ YouTube／Instagram 依來源資料顯示解析度、幀率及檔案格式；相
 | YouTube | `youtube.com/watch?v=VIDEO_ID`、`youtu.be/VIDEO_ID`、`youtube.com/shorts/VIDEO_ID` |
 | Instagram | `instagram.com/p/CODE/`、`instagram.com/reel/CODE/`、`instagram.com/tv/CODE/`、分享短連結 |
 | Threads | `threads.com/@user/post/CODE`、`threads.net/@user/post/CODE`、`threads.com/t/CODE`、`threads.com/share/CODE` |
+| 小紅書／RedNote | `xhslink.cn/o/CODE`、`xhslink.com/m/CODE`、`xiaohongshu.com/explore/NOTE_ID`、`xiaohongshu.com/discovery/item/NOTE_ID`、`rednote.com/explore/NOTE_ID` |
 
 ## 專案結構
 

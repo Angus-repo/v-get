@@ -7,6 +7,8 @@ internal object DownloadErrors {
         val message = error.message.orEmpty()
         val lower = message.lowercase(Locale.ROOT)
         return when {
+            listOf("no audio", "does not contain any audio", "audio stream not found").any { it in lower } ->
+                "這支影片沒有可擷取的音軌，無法轉為 MP3。"
             "requested format" in lower -> "所選畫質目前無法取得，請重新分析連結後再選擇。"
             listOf("private", "login", "log in", "sign in", "age-restricted", "cookies", "members-only").any { it in lower } ->
                 "${platform.displayName} 要求登入，或影片有私人／年齡限制。目前僅支援不需登入的公開影片。"

@@ -58,24 +58,28 @@ internal class YtDlpDownloader(context: Context) {
         }
     }
 
-    fun download(source: VideoSource, quality: VideoQuality): Flow<VideoDownloader.DownloadProgress> = channelFlow {
+    fun download(source: VideoSource, quality: VideoQuality, format: DownloadFormat = DownloadFormat.VIDEO): Flow<VideoDownloader.DownloadProgress> = channelFlow {
         val id = UUID.randomUUID().toString()
         val directory = File(context.cacheDir, "vget-$id")
         try {
             send(VideoDownloader.DownloadProgress.Processing("正在準備 ${source.platform.displayName} 下載..."))
-            prepareEngine()
+            if (format == DownloadFormat.MP3 && quality.directUrl != null) runInterruptible(Dispatchers.IO) { initialize() }
+            else prepareEngine()
             runInterruptible(Dispatchers.IO) { check(directory.mkdirs()) { "無法建立下載暫存資料夾" } }
             val manifest = File(directory, "completed.txt")
-            val request = buildRequest(source.url, directory, manifest, quality)
+            val request = if (format == DownloadFormat.MP3) buildMp3Request(source, directory, manifest, quality)
+                else buildRequest(source.url, directory, manifest, quality)
             runInterruptible(Dispatchers.IO) {
                 YoutubeDL.getInstance().execute(request, id) { progress, _, _ ->
-                    if (progress >= 0) trySend(VideoDownloader.DownloadProgress.Progress(progress.toInt().coerceIn(0, 99)))
+                    if (format == DownloadFormat.MP3 && progress >= 100) {
+                        trySend(VideoDownloader.DownloadProgress.Processing("正在轉換 MP3 音訊..."))
+                    } else if (progress >= 0) trySend(VideoDownloader.DownloadProgress.Progress(progress.toInt().coerceIn(0, 99)))
                 }
             }
             currentCoroutineContext().ensureActive()
-            send(VideoDownloader.DownloadProgress.Processing("正在儲存影片..."))
+            send(VideoDownloader.DownloadProgress.Processing(if (format == DownloadFormat.MP3) "正在儲存 MP3 音訊..." else "正在儲存影片..."))
             val saved = withContext(Dispatchers.IO) {
-                val file = completedFile(directory, manifest)
+                val file = completedFile(directory, manifest, format)
                 VideoStorage(context).save(file, "${source.platform.name.lowercase()}_$id.${file.extension}")
             }
             send(VideoDownloader.DownloadProgress.Completed(saved))
@@ -122,13 +126,39 @@ internal class YtDlpDownloader(context: Context) {
             }
         }
 
-        internal fun completedFile(directory: File, manifest: File): File {
+        internal fun buildMp3Request(source: VideoSource, directory: File, manifest: File, quality: VideoQuality): YoutubeDLRequest {
+            require(!quality.silent) { "所選畫質沒有音軌，無法轉為 MP3" }
+            val direct = quality.directUrl
+            val selector = if (direct != null) "best" else quality.audioFormatSelector
+                ?: quality.formatSelector?.substringAfterLast('+')
+                ?: throw IllegalArgumentException("請先分析影片並選擇畫質")
+            require(Regex("[A-Za-z0-9_.-]+").matches(selector)) { "無效的音訊格式" }
+            return baseRequest(direct ?: source.url).apply {
+                addOption("--abort-on-unavailable-fragments")
+                addOption("--no-mtime")
+                addOption("--no-simulate")
+                addOption("--newline")
+                addOption("-f", selector)
+                addOption("--extract-audio")
+                addOption("--audio-format", "mp3")
+                addOption("--audio-quality", "192K")
+                if (direct != null) {
+                    addOption("--referer", source.platform.referer)
+                    addOption("--user-agent", PlatformPageClient.USER_AGENT)
+                }
+                addOption("-o", File(directory, "audio.%(ext)s").absolutePath)
+                addCommands(listOf("--print-to-file", "after_move:filepath", manifest.absolutePath))
+            }
+        }
+
+        internal fun completedFile(directory: File, manifest: File, format: DownloadFormat = DownloadFormat.VIDEO): File {
             val path = manifest.takeIf { it.isFile }?.readLines()?.singleOrNull()
-                ?: throw IOException("找不到完整影片；直播、預告或無影片的貼文目前不支援")
+                ?: throw IOException("找不到完整下載檔；直播、預告或無影片的貼文目前不支援")
             val file = File(path).canonicalFile
+            val extensions = if (format == DownloadFormat.MP3) setOf("mp3") else setOf("mp4", "webm", "mkv")
             if (file.parentFile != directory.canonicalFile || !file.isFile || file.length() == 0L ||
-                file.extension.lowercase() !in setOf("mp4", "webm", "mkv")) {
-                throw IOException("影片下載未完成，請重試")
+                file.extension.lowercase() !in extensions) {
+                throw IOException("檔案下載或轉換未完成，請重試")
             }
             return file
         }

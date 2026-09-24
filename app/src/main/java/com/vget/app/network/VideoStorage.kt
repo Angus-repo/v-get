@@ -16,12 +16,8 @@ import java.io.OutputStream
 /** Only publish complete files; failed or cancelled copies leave no visible partial video. */
 internal class VideoStorage(private val context: Context) {
     suspend fun save(file: File, name: String): SavedVideo {
-        require(file.isFile && file.length() > 0) { "影片下載未完成，請重試" }
-        val mime = when (file.extension.lowercase()) {
-            "webm" -> "video/webm"
-            "mkv" -> "video/x-matroska"
-            else -> "video/mp4"
-        }
+        require(file.isFile && file.length() > 0) { "檔案下載未完成，請重試" }
+        val mime = mediaMimeType(file.extension)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val resolver = context.contentResolver
             val values = ContentValues().apply {
@@ -37,7 +33,7 @@ internal class VideoStorage(private val context: Context) {
                 output.use { copy(file, it) }
                 currentCoroutineContext().ensureActive()
                 val published = resolver.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
-                if (published != 1) throw IOException("無法完成影片儲存")
+                if (published != 1) throw IOException("無法完成檔案儲存")
             } catch (e: Exception) {
                 resolver.delete(uri, null, null)
                 throw e
@@ -52,7 +48,7 @@ internal class VideoStorage(private val context: Context) {
         try {
             partial.outputStream().use { copy(file, it) }
             currentCoroutineContext().ensureActive()
-            if (!partial.renameTo(target)) throw IOException("無法完成影片儲存")
+            if (!partial.renameTo(target)) throw IOException("無法完成檔案儲存")
         } finally {
             partial.delete()
         }

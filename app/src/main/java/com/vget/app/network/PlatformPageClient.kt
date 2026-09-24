@@ -4,6 +4,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.runInterruptible
 import okhttp3.OkHttpClient
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Request
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -42,10 +43,27 @@ internal class PlatformPageClient(client: OkHttpClient = OkHttpClient()) {
             ?: throw IOException("無法解析 Instagram 分享連結，請改用貼文或 Reels 的完整網址")
     }
 
+    suspend fun extractXiaohongshu(source: VideoSource): VideoExtractor.VideoInfo {
+        val (resolved, html) = fetch(source, USER_AGENT)
+        val target = runCatching { VideoSource.parse(resolved) }.getOrNull()
+            ?.takeIf { it.platform == VideoPlatform.XIAOHONGSHU && it.postId != null }
+            ?: throw IOException("無法解析小紅書分享連結，請從小紅書重新複製影片筆記的連結")
+        if (source.postId != null && source.postId != target.postId) {
+            throw IOException("小紅書連結導向不同筆記，請重新複製原影片的分享連結")
+        }
+        return XiaohongshuPageParser.parse(html, target)
+            ?: throw IOException("找不到這篇小紅書筆記的公開影片。純圖片、需要登入或驗證的內容目前不支援。")
+    }
+
     private suspend fun fetch(source: VideoSource, agent: String): Pair<String, String> {
         var url = source.url
         repeat(6) {
             currentCoroutineContext().ensureActive()
+            if (source.platform == VideoPlatform.XIAOHONGSHU &&
+                url.toHttpUrlOrNull()?.pathSegments
+                    ?.any { it in setOf("login", "captcha", "website-login") } == true) {
+                throw IOException("小紅書要求登入或驗證，目前僅支援免登入的公開影片。")
+            }
             val response = runInterruptible {
                 client.newCall(Request.Builder().url(url).header("User-Agent", agent)
                     .header("Referer", source.platform.referer)
@@ -60,8 +78,14 @@ internal class PlatformPageClient(client: OkHttpClient = OkHttpClient()) {
             }
             response.use {
                 if (it.isRedirect) {
-                    val next = it.header("Location")?.let(it.request.url::resolve)
+                    var next = it.header("Location")?.let(it.request.url::resolve)
                         ?: throw IOException("分享連結重新導向失敗")
+                    // Some XHS app links still return HTTP Locations. Upgrade
+                    // same-platform links before sending any network request.
+                    if (source.platform == VideoPlatform.XIAOHONGSHU && next.scheme == "http" && next.port == 80 &&
+                        VideoSource.platformForHost(next.host) == source.platform) {
+                        next = next.newBuilder().scheme("https").port(443).build()
+                    }
                     require(next.isHttps && VideoSource.platformForHost(next.host) == source.platform &&
                         next.username.isEmpty() && next.password.isEmpty() && next.port == 443) { "分享連結導向不支援的網站" }
                     url = next.toString()

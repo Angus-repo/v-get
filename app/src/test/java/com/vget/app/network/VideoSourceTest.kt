@@ -4,6 +4,49 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class VideoSourceTest {
+    @Test fun extractsUserProvidedXiaohongshuShareText() {
+        val input = "月薪1万，其实是月薪3000的八倍，人家一个月的收入相... https://xhslink.cn/o/91RAPBJqYUG 複製後開啟小紅書查看筆記"
+        val source = VideoSource.parse(input)
+        assertEquals(VideoPlatform.XIAOHONGSHU, source.platform)
+        assertEquals("https://xhslink.cn/o/91RAPBJqYUG", source.url)
+        assertNull(source.postId)
+    }
+
+    @Test fun separatesChinesePunctuationAndAdjacentShareInstructionsFromUrl() {
+        listOf("分享：https://xhslink.cn/o/91RAPBJqYUG複製後開啟小紅書",
+            "分享\n「https://xhslink.cn/o/91RAPBJqYUG」\n查看筆記",
+            "（https://xhslink.cn/o/91RAPBJqYUG），複製後開啟",
+            "https://xhslink.cn/o/91RAPBJqYUG。").forEach {
+            assertEquals(it, "https://xhslink.cn/o/91RAPBJqYUG", VideoSource.parse(it).url)
+        }
+    }
+
+    @Test fun acceptsXiaohongshuAndRednoteNotesWithoutChangingShareTokens() {
+        val id = "6ab5166e00000000150062aa"
+        for (host in listOf("www.xiaohongshu.com", "www.rednote.com")) {
+            for (path in listOf("explore", "discovery/item")) {
+                val url = "https://$host/$path/$id?xsec_token=A%2FB+C%2B==&xsec_source=app_share"
+                val source = VideoSource.parse("分享 $url 複製後開啟")
+                assertEquals(url, source.url)
+                assertEquals(id, source.postId)
+            }
+        }
+        for (host in listOf("xhslink.com", "xhslink.cn")) {
+            for (path in listOf("Abc123", "m/Abc123", "a/Abc123", "o/Abc123")) {
+                assertEquals(VideoPlatform.XIAOHONGSHU, VideoSource.parse("https://$host/$path").platform)
+            }
+        }
+    }
+
+    @Test fun rejectsXiaohongshuLookalikesProfilesAndNonNotePaths() {
+        listOf("https://xhslink.cn.evil.example/o/abc", "https://xiaohongshu.com@evil.example/explore/abc",
+            "https://user:pass@xhslink.cn/o/abc", "https://xhslink.cn:8443/o/abc",
+            "https://www.xiaohongshu.com/", "https://www.xiaohongshu.com/user/profile/6ab5166e00000000150062aa",
+            "https://www.xiaohongshu.com/explore/not-a-note", "https://xhslink.cn/o/").forEach {
+            assertThrows(it, IllegalArgumentException::class.java) { VideoSource.parse(it) }
+        }
+    }
+
     @Test fun youtubeVariantsSelectOnlyTheRequestedVideo() {
         listOf(
             "https://youtube.com/watch?v=BaW_jenozKc&list=PL123&index=2",
@@ -44,6 +87,7 @@ class VideoSourceTest {
         assertEquals("https://www.facebook.com/watch/?v=123", VideoSource.parse("m.facebook.com/watch/?v=123").url)
         assertEquals(VideoPlatform.FACEBOOK, VideoSource.parse("https://fb.watch/abc/").platform)
         assertEquals(VideoPlatform.FACEBOOK, VideoSource.parse("https://www.facebook.com/share/v/abc/").platform)
+        assertTrue(VideoSource.parse("https://www.facebook.com/測試/videos/123").url.endsWith("/videos/123"))
     }
 
     @Test fun rejectsUnsupportedAndDeceptiveUrlsBeforeNetworkAccess() {
