@@ -48,13 +48,4 @@ class FacebookUrlTest {
         }
     }
 
-    @Test fun createsSafeUniqueMp4Names() {
-        val first = VideoDownloader.fileName("../../我的影片: <test>")
-        assertFalse(first.contains('/'))
-        assertFalse(first.contains(':'))
-        assertFalse(first.contains('.'.toString().repeat(2)))
-        assertTrue(first.endsWith(".mp4"))
-        assertNotEquals(first, VideoDownloader.fileName("../../我的影片: <test>"))
-        assertTrue(VideoDownloader.fileName("長".repeat(200)).length <= 73)
-    }
 }

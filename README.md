@@ -2,6 +2,13 @@
 
 V-Get downloads public Facebook, YouTube, Instagram, Threads and Xiaohongshu/RedNote videos on Android. Paste a video link or the complete share text, or share it directly to V-Get from another app.
 
+## New in 1.3.4
+
+- Downloaded videos and MP3 files use the title obtained during page analysis, for example `My trip.mp4` and `My trip.mp3`; the actual media format determines the extension.
+- Preserve Chinese, spaces and emoji. Replace unsafe filename characters, shorten very long titles safely and use `V-Get` if no usable title is available.
+- Repeated downloads get a copy number such as `My trip (1).mp4`, preserving existing files. The completion message uses the actual filename chosen by Android.
+- Applies to all five platforms and both download engines. Existing files are not renamed. Version is 1.3.4 (versionCode 9), with the retained signing identity.
+
 ## PR #2 integration with main
 
 The working 1.3.3 multi-platform interface and `VideoDownloadService` / MediaStore pipeline are retained, including Xiaohongshu connection retries, video quality/capacity, preview and MP3. They supersede main's Facebook-only activity, ViewModel and DownloadManager pipeline; foreground download behavior remains as documented below. The signing configuration and version stay unchanged.
@@ -37,7 +44,7 @@ The optional Facebook network test is available with `./gradlew :app:testDebugUn
 - Download the selected audio as a real 192 kbps MP3. Separate YouTube audio is selected directly; other sources may require downloading the video before conversion. Silent sources cannot produce MP3 audio.
 - Both videos and MP3 files use `Downloads/V-Get/` and support playback after download.
 
-Login or verification redirects stop with an actionable message; this version does not add login or cookie import. Version 1.3.3 (versionCode 8) retains the existing 1.2.1 signing key.
+Login or verification redirects stop with an actionable message; this version does not add login or cookie import. Version 1.3.4 (versionCode 9) retains the existing 1.2.1 signing key.
 
 > Looking for the Traditional Chinese guide? Check out [README_zh_TW.md](README_zh_TW.md).
 
