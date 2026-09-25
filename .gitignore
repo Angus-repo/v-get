@@ -4,3 +4,9 @@
 .gradle/
 local.properties
 app/bin/*
+
+# Signing material belongs in private storage, never in this public repository.
+signing/
+*.keystore
+*.jks
+keystore.properties

@@ -1,9 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="facebook_blue">#97B9FF</color>
-    <color name="background">#101827</color>
-    <color name="card_background">#1A2639</color>
-    <color name="text_primary">#F0F4FD</color>
-    <color name="text_secondary">#BBC9E0</color>
-    <color name="border">#364760</color>
-    <color name="button_text">#152440</color>
+    <color name="background">#0D1626</color>
+    <color name="card_background">#172337</color>
+    <color name="selector_background">#21314B</color>
+    <color name="selected_background">#253F66</color>
+    <color name="text_primary">#F3F6FF</color>
+    <color name="text_secondary">#BFCEE3</color>
+    <color name="primary">#A9CCFF</color>
+    <color name="on_primary">#09284F</color>
+    <color name="outline">#8397B1</color>
+    <color name="divider">#374760</color>
+    <color name="disabled_background">#2A3649</color>
+    <color name="disabled_text">#A3B2C9</color>
+    <color name="status_bar">#0D1626</color>
+    <color name="success">#173B30</color>
+    <color name="on_success">#B8F5D1</color>
+    <color name="error">#4A202A</color>
+    <color name="on_error">#FFDADB</color>
+    <color name="error_text">#FFB4AB</color>
 </resources>

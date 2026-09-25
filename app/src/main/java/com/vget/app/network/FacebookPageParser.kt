@@ -8,7 +8,7 @@ import org.jsoup.parser.Parser
 import java.io.IOException
 
 data class VideoFormat(val quality: String, val url: String)
-data class VideoInfo(val title: String, val sourceUrl: String, val formats: List<VideoFormat>)
+data class FacebookVideoInfo(val title: String, val sourceUrl: String, val formats: List<VideoFormat>)
 
 /** Only named progressive video fields are accepted, never arbitrary CDN assets. */
 object FacebookPageParser {
@@ -18,7 +18,7 @@ object FacebookPageParser {
     )
     private data class Candidate(val id: String?, val formats: List<VideoFormat>)
 
-    fun parse(html: String, sourceUrl: String): VideoInfo {
+    fun parse(html: String, sourceUrl: String): FacebookVideoInfo {
         val document = Jsoup.parse(html)
         val title = document.selectFirst("meta[property=og:title]")?.attr("content")
             ?.takeIf(String::isNotBlank) ?: document.title().ifBlank { "Facebook 影片" }
@@ -46,7 +46,7 @@ object FacebookPageParser {
         if (formats.isEmpty()) throw IOException(
             "找不到可下載的公開影片。請使用影片原始連結；需要登入、私人影片、直播或分離影音串流目前不支援。"
         )
-        return VideoInfo(title.take(200), sourceUrl, formats)
+        return FacebookVideoInfo(title.take(200), sourceUrl, formats)
     }
 
     private fun visit(node: JsonElement, inheritedId: String?, out: MutableList<Candidate>, depth: Int) {

@@ -1,0 +1,64 @@
+import java.security.KeyStore
+import java.security.MessageDigest
+import java.security.PrivateKey
+
+// Identity of the privately retained V-Get 1.2.1 key. Never replace it with
+// a newly generated Android debug key; existing installations depend on it.
+def expectedCertificate = '4b69dff09888669e65c5d7a9bd4bc607ff2e902f67c659481d28d696ad0afd8c'
+def setting = { String envName, String propertyName, String fallback ->
+    providers.environmentVariable(envName).orElse(providers.gradleProperty(propertyName)).getOrElse(fallback)
+}
+def signingFile = rootProject.file(setting('VGET_KEYSTORE_FILE', 'vgetKeystoreFile', 'signing/v-get.keystore'))
+def storePasswordValue = setting('VGET_KEYSTORE_PASSWORD', 'vgetKeystorePassword', 'android')
+def keyAliasValue = setting('VGET_KEY_ALIAS', 'vgetKeyAlias', 'androiddebugkey')
+def keyPasswordValue = setting('VGET_KEY_PASSWORD', 'vgetKeyPassword', 'android')
+
+def verifySigning = tasks.register('verifyVGetSigning') {
+    group = 'verification'
+    description = 'Require the retained V-Get 1.2.1 private signing key before packaging.'
+    // Always check the actual file; no outputs or generated fallback key.
+    doLast {
+        if (!signingFile.isFile()) {
+            throw new GradleException('V-Get signing key is missing. Restore the retained 1.2.1 keystore to signing/v-get.keystore or set VGET_KEYSTORE_FILE. Do not generate a new key. See docs/SIGNING.md.')
+        }
+        KeyStore store
+        try {
+            store = KeyStore.getInstance(signingFile, storePasswordValue.toCharArray())
+            if (!(store.getKey(keyAliasValue, keyPasswordValue.toCharArray()) instanceof PrivateKey)) {
+                throw new GradleException('V-Get signing alias must contain a private key.')
+            }
+        } catch (Exception failure) {
+            throw new GradleException('Cannot open the retained V-Get private key. Check the keystore, alias and passwords.', failure)
+        }
+        def certificate = store.getCertificate(keyAliasValue)
+        def fingerprint = MessageDigest.getInstance('SHA-256').digest(certificate.encoded).encodeHex().toString()
+        if (fingerprint != expectedCertificate) {
+            throw new GradleException("V-Get signing certificate mismatch. Expected ${expectedCertificate}, got ${fingerprint}. Restore the original 1.2.1 key; do not change the expected fingerprint.")
+        }
+        logger.lifecycle("Verified V-Get 1.2.1 signing certificate: ${fingerprint}")
+    }
+}
+
+// Keeping verification independent also permits checking the backup without
+// downloading Android dependencies: apply this file in a plain Gradle project.
+plugins.withId('com.android.application') {
+    android {
+        signingConfigs {
+            vgetPersistent {
+                storeFile signingFile
+                storePassword storePasswordValue
+                keyAlias keyAliasValue
+                keyPassword keyPasswordValue
+            }
+        }
+        buildTypes {
+            debug { signingConfig signingConfigs.vgetPersistent }
+            release { signingConfig signingConfigs.vgetPersistent }
+        }
+    }
+    tasks.configureEach { task ->
+        if (task.name.startsWith('validateSigning')) {
+            task.dependsOn(verifySigning)
+        }
+    }
+}

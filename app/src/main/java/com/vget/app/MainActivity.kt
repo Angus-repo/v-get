@@ -1,167 +1,312 @@
 package com.vget.app
 
-import android.Manifest
-import android.app.DownloadManager
-import android.content.ActivityNotFoundException
 import android.content.ClipboardManager
+import android.content.ClipData
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.text.format.Formatter
+import android.os.Build
 import android.view.View
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
+import android.widget.AdapterView
+import android.widget.LinearLayout
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import com.google.android.material.chip.Chip
 import com.google.android.material.snackbar.Snackbar
-import com.vget.app.MainViewModel.Phase
 import com.vget.app.databinding.ActivityMainBinding
-import com.vget.app.network.FacebookUrl
-import com.vget.app.network.VideoInfo
+import com.vget.app.network.DownloadErrors
+import com.vget.app.network.DownloadFormat
+import com.vget.app.network.formatBytes
+import com.vget.app.network.MediaStream
+import com.vget.app.network.SavedVideo
+import com.vget.app.network.VideoDetails
+import com.vget.app.network.VideoDownloadService
+import com.vget.app.network.VideoDownloader.DownloadProgress
+import com.vget.app.network.VideoPreview
+import com.vget.app.network.VideoQuality
+import com.vget.app.network.VideoSource
 import com.vget.app.utils.PermissionHelper
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
-    private val model: MainViewModel by viewModels()
-    private var renderedVideo: VideoInfo? = null
-    private var pendingShare: String? = null
-    private val storagePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) model.download() else message(getString(R.string.permission_required))
-    }
+    private lateinit var downloads: VideoDownloadService
+    private var activeJob: Job? = null
+    private var busy = false
+    private var preparedVideo: VideoDetails? = null
+    private data class PendingDownload(val video: VideoDetails, val quality: VideoQuality, val format: DownloadFormat)
+    private var pendingDownload: PendingDownload? = null
+    private var savedVideo: SavedVideo? = null
+    private var savedTitle = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        binding.urlEditText.setText(model.state.value.input)
-        binding.urlEditText.doAfterTextChanged { model.input(it?.toString().orEmpty()) }
-        binding.pasteButton.setOnClickListener {
-            val clipboard = getSystemService(ClipboardManager::class.java)
-            val clip = clipboard.primaryClip
-            val text = if (clip != null && clip.itemCount > 0) clip.getItemAt(0).coerceToText(this)?.toString() else null
-            if (text.isNullOrBlank()) message(getString(R.string.clipboard_empty))
-            else model.input(FacebookUrl.fromSharedText(text))
-        }
-        binding.clearButton.setOnClickListener { model.input("") }
-        binding.analyzeButton.setOnClickListener { model.analyze() }
-        binding.downloadButton.setOnClickListener {
-            if (PermissionHelper.hasStoragePermission(this)) model.download()
-            else storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        }
-        binding.cancelButton.setOnClickListener { model.cancel() }
-        binding.openButton.setOnClickListener {
-            model.state.value.savedUri?.let { uri ->
-                open(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "video/mp4")
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+        if (resources.configuration.fontScale >= 1.5f) {
+            binding.inputActions.orientation = LinearLayout.VERTICAL
+            listOf(binding.pasteButton, binding.downloadButton).forEach { button ->
+                button.layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             }
         }
-        binding.filesButton.setOnClickListener { open(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)) }
-        binding.qualityGroup.setOnCheckedStateChangeListener { group, ids ->
-            ids.firstOrNull()?.let { id -> model.select(group.findViewById<Chip>(id).tag as Int) }
+        downloads = VideoDownloadService(applicationContext)
+        binding.pasteButton.setOnClickListener { pasteFromClipboard() }
+        binding.downloadButton.setOnClickListener { analyzeVideo() }
+        binding.downloadSelectedButton.setOnClickListener { requestDownload() }
+        binding.downloadMp3Button.setOnClickListener { requestDownload(DownloadFormat.MP3) }
+        binding.previewButton.setOnClickListener { previewSelected() }
+        binding.playDownloadedButton.setOnClickListener {
+            savedVideo?.let { PlayerActivity.open(this, VideoPreview(MediaStream(it.uri, mimeType = it.mimeType)), savedTitle) }
         }
+        binding.cancelButton.setOnClickListener { activeJob?.cancel() }
+        binding.updateEngineButton.setOnClickListener { updateEngine() }
+        binding.copyErrorButton.setOnClickListener {
+            (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(
+                ClipData.newPlainText(getString(R.string.error_details), binding.errorDetails.text))
+            Toast.makeText(this, R.string.error_copied, Toast.LENGTH_SHORT).show()
+        }
+        binding.urlEditText.doAfterTextChanged { invalidateSelection() }
+        binding.qualitySpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) { updateSelectionControls() }
+            override fun onNothingSelected(parent: AdapterView<*>?) { updateSelectionControls() }
+        }
+        savedInstanceState?.getString("saved_uri")?.let { uri ->
+            savedVideo = SavedVideo(savedInstanceState.getString("saved_path").orEmpty(), uri,
+                savedInstanceState.getString("saved_mime") ?: "video/mp4")
+            savedTitle = savedInstanceState.getString("saved_title").orEmpty()
+            binding.progressCard.visibility = View.VISIBLE
+        }
+        updateSelectionControls()
         if (savedInstanceState == null) receiveShare(intent)
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                model.state.collect { state ->
-                    render(state)
-                    if (state.phase != Phase.RESTORING) {
-                        pendingShare?.let { text ->
-                            pendingShare = null
-                            if (state.busy) message(getString(R.string.finish_current)) else model.input(text)
-                        }
-                    }
-                }
-            }
-        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        receiveShare(intent)
+        if (busy) showError(getString(R.string.busy)) else receiveShare(intent)
     }
 
     private fun receiveShare(intent: Intent) {
-        if (intent.action != Intent.ACTION_SEND || intent.type != "text/plain") return
-        val text = intent.getStringExtra(Intent.EXTRA_TEXT)?.let(FacebookUrl::fromSharedText) ?: return
-        if (model.state.value.phase == Phase.RESTORING) pendingShare = text
-        else if (model.state.value.busy) message(getString(R.string.finish_current)) else model.input(text)
+        if (intent.action == Intent.ACTION_SEND && intent.type == "text/plain") {
+            intent.getStringExtra(Intent.EXTRA_TEXT)?.let { binding.urlEditText.setText(it) }
+        }
     }
 
-    private fun render(state: MainViewModel.UiState) = with(binding) {
-        if (urlEditText.text.toString() != state.input) urlEditText.setText(state.input)
-        urlEditText.isEnabled = !state.busy
-        pasteButton.isEnabled = !state.busy
-        clearButton.isEnabled = !state.busy && state.input.isNotEmpty()
-        analyzeButton.isEnabled = !state.busy && state.input.isNotBlank()
-        analyzeButton.setText(if (state.phase == Phase.ANALYZING) R.string.analyzing else R.string.analyze)
-        videoCard.isVisible = state.video != null
-        if (renderedVideo != state.video) {
-            renderedVideo = state.video
-            qualityGroup.removeAllViews()
-            state.video?.let { video ->
-                videoTitle.text = video.title
-                video.formats.forEachIndexed { index, format ->
-                    qualityGroup.addView(Chip(this@MainActivity).apply {
-                        id = View.generateViewId()
-                        tag = index
-                        text = when (format.quality) {
-                            "HD" -> getString(R.string.quality_hd)
-                            "SD" -> getString(R.string.quality_sd)
-                            else -> "MP4"
-                        }
-                        isCheckable = true
-                        isChecked = index == state.selected
-                        minHeight = (48 * resources.displayMetrics.density).toInt()
-                    })
+    private fun pasteFromClipboard() {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = clipboard.primaryClip
+        val text = if (clip != null && clip.itemCount > 0) clip.getItemAt(0).coerceToText(this) else null
+        if (text.isNullOrBlank()) Toast.makeText(this, R.string.clipboard_empty, Toast.LENGTH_SHORT).show()
+        else {
+            binding.urlEditText.setText(text)
+            Toast.makeText(this, R.string.link_pasted, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun invalidateSelection() {
+        preparedVideo = null
+        pendingDownload = null
+        binding.qualityCard.visibility = View.GONE
+        binding.urlInputLayout.error = null
+        updateSelectionControls()
+    }
+
+    private fun analyzeVideo() {
+        if (busy) return
+        val source = try {
+            VideoSource.parse(binding.urlEditText.text.toString())
+        } catch (e: IllegalArgumentException) {
+            binding.urlInputLayout.error = e.message ?: getString(R.string.invalid_url)
+            return
+        }
+        invalidateSelection()
+        activeJob = lifecycleScope.launch {
+            setBusy(true)
+            binding.statusText.text = getString(R.string.analyzing_platform, source.platform.displayName)
+            try {
+                val video = downloads.inspect(source)
+                preparedVideo = video
+                binding.videoTitle.text = video.title
+                binding.qualitySpinner.adapter = QualityAdapter(this@MainActivity, video.qualities) {
+                    binding.qualitySpinner.selectedItemPosition
                 }
+                binding.qualityCard.visibility = View.VISIBLE
+                binding.statusText.setText(R.string.quality_ready)
+            } catch (e: CancellationException) {
+                binding.statusText.setText(R.string.download_cancelled)
+                throw e
+            } catch (e: Exception) {
+                binding.statusText.setText(R.string.error_parse)
+                showError(getString(R.string.analysis_error_detail, DownloadErrors.message(e, source.platform)))
+            } finally {
+                setBusy(false)
             }
         }
-        for (i in 0 until qualityGroup.childCount) {
-            (qualityGroup.getChildAt(i) as Chip).apply { isEnabled = !state.busy; isChecked = i == state.selected }
+    }
+
+    private fun selectedQuality(): VideoQuality? = preparedVideo?.qualities?.getOrNull(binding.qualitySpinner.selectedItemPosition)
+
+    private fun previewSelected() {
+        if (busy) return
+        val video = preparedVideo ?: return
+        val quality = selectedQuality() ?: return
+        val preview = quality.preview ?: return
+        PlayerActivity.open(this, preview, "${video.title}\n${quality.label}")
+    }
+
+    private fun requestDownload(format: DownloadFormat = DownloadFormat.VIDEO) {
+        if (busy) return
+        val video = preparedVideo ?: return
+        val quality = selectedQuality() ?: return
+        if (format == DownloadFormat.MP3 && quality.silent) return
+        if (PermissionHelper.hasStoragePermission(this)) startDownload(video, quality, format)
+        else {
+            pendingDownload = PendingDownload(video, quality, format)
+            PermissionHelper.requestStoragePermission(this)
         }
-        downloadButton.isEnabled = !state.busy
-        statusCard.isVisible = state.phase !in listOf(Phase.IDLE, Phase.READY)
-        progressBar.isVisible = state.busy
-        val determinate = state.phase == Phase.DOWNLOADING && state.total > 0
-        progressBar.isIndeterminate = !determinate
-        if (determinate) progressBar.progress = (state.bytes * 100.0 / state.total).toInt().coerceIn(0, 100)
-        statusText.text = when (state.phase) {
-            Phase.RESTORING -> getString(R.string.restoring)
-            Phase.ANALYZING -> getString(R.string.analyzing)
-            Phase.DOWNLOADING -> state.message.ifBlank { getString(R.string.downloading) }
-            Phase.CANCELLING -> getString(R.string.cancelling)
-            Phase.COMPLETE -> getString(R.string.download_complete)
-            Phase.ERROR -> getString(R.string.download_failed)
-            else -> ""
-        }
-        progressText.text = when (state.phase) {
-            Phase.DOWNLOADING -> {
-                val bytes = Formatter.formatShortFileSize(this@MainActivity, state.bytes.coerceAtLeast(0))
-                if (determinate) getString(R.string.progress_known, progressBar.progress, bytes,
-                    Formatter.formatShortFileSize(this@MainActivity, state.total))
-                else getString(R.string.progress_unknown, bytes)
+    }
+
+    private fun startDownload(video: VideoDetails, quality: VideoQuality, format: DownloadFormat) {
+        activeJob = lifecycleScope.launch {
+            setBusy(true)
+            binding.statusText.setText(R.string.downloading)
+            try {
+                downloads.download(video, quality, format).collect { progress ->
+                    when (progress) {
+                        DownloadProgress.Starting -> binding.statusText.setText(R.string.downloading)
+                        is DownloadProgress.Processing -> {
+                            binding.statusText.text = progress.message
+                            binding.progressBar.isIndeterminate = true
+                        }
+                        is DownloadProgress.Progress -> {
+                            binding.statusText.setText(R.string.downloading)
+                            binding.progressBar.isIndeterminate = progress.totalBytes <= 0 && progress.percentage == 0
+                            binding.progressBar.progress = progress.percentage
+                            binding.progressText.text = if (progress.totalBytes > 0) {
+                                "${progress.percentage}% (${formatFileSize(progress.downloadedBytes)} / ${formatFileSize(progress.totalBytes)})"
+                            } else "${progress.percentage}%"
+                        }
+                        is DownloadProgress.Completed -> {
+                            savedVideo = progress.video
+                            savedTitle = "${video.title}\n${if (format == DownloadFormat.MP3) "MP3 · 192 kbps" else quality.label}"
+                            binding.progressBar.isIndeterminate = false
+                            binding.progressBar.progress = 100
+                            binding.progressText.text = "100%"
+                            binding.statusText.setText(R.string.download_complete)
+                            showSuccess(getString(R.string.video_saved, progress.video.filePath))
+                        }
+                        is DownloadProgress.Error -> {
+                            binding.statusText.setText(R.string.download_failed)
+                            showError(getString(if (format == DownloadFormat.MP3) R.string.mp3_error_detail else R.string.video_error_detail, progress.message))
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                binding.statusText.setText(R.string.download_cancelled)
+                throw e
+            } catch (e: Exception) {
+                binding.statusText.setText(R.string.download_failed)
+                showError(getString(if (format == DownloadFormat.MP3) R.string.mp3_error_detail else R.string.video_error_detail,
+                    DownloadErrors.message(e, video.source.platform)))
+            } finally {
+                setBusy(false)
             }
-            Phase.COMPLETE -> getString(R.string.saved_location, state.fileName)
-            Phase.ERROR -> state.message
-            Phase.ANALYZING -> getString(R.string.analyzing_detail)
-            else -> ""
         }
-        progressText.isVisible = progressText.text.isNotEmpty()
-        cancelButton.isVisible = state.phase == Phase.ANALYZING || state.phase == Phase.DOWNLOADING
-        openButton.isVisible = state.savedUri != null && state.phase == Phase.COMPLETE
     }
 
-    private fun open(intent: Intent) {
-        try { startActivity(intent) }
-        catch (_: ActivityNotFoundException) { message(getString(R.string.no_viewer)) }
-        catch (_: SecurityException) { message(getString(R.string.file_unavailable)) }
+    private fun updateEngine() {
+        if (busy) return
+        invalidateSelection()
+        activeJob = lifecycleScope.launch {
+            setBusy(true)
+            binding.statusText.setText(R.string.updating_engine)
+            try {
+                downloads.updateEngine()
+                binding.statusText.setText(R.string.engine_updated)
+                showSuccess(getString(R.string.engine_updated))
+            } catch (e: CancellationException) {
+                binding.statusText.setText(R.string.download_cancelled)
+                throw e
+            } catch (_: Exception) {
+                binding.statusText.setText(R.string.engine_update_failed)
+                showError(getString(R.string.engine_update_failed))
+            } finally {
+                setBusy(false)
+            }
+        }
     }
 
-    private fun message(text: String) { Snackbar.make(binding.root, text, Snackbar.LENGTH_LONG).show() }
+    private fun setBusy(value: Boolean) {
+        busy = value
+        binding.downloadButton.isEnabled = !busy
+        binding.pasteButton.isEnabled = !busy
+        binding.urlInputLayout.isEnabled = !busy
+        binding.urlEditText.isEnabled = !busy
+        binding.updateEngineButton.isEnabled = !busy
+        binding.cancelButton.visibility = if (busy) View.VISIBLE else View.GONE
+        binding.progressCard.visibility = View.VISIBLE
+        binding.progressBar.isIndeterminate = busy
+        if (busy) {
+            binding.errorPanel.visibility = View.GONE
+            binding.progressBar.visibility = View.VISIBLE
+            binding.progressBar.progress = 0
+            binding.progressText.text = ""
+        }
+        updateSelectionControls()
+    }
+
+    private fun updateSelectionControls() {
+        val quality = selectedQuality()
+        binding.qualitySpinner.isEnabled = !busy
+        binding.downloadSelectedButton.isEnabled = !busy && quality != null
+        binding.downloadMp3Button.isEnabled = !busy && quality != null && !quality.silent
+        binding.mp3Hint.text = if (quality?.silent == true) getString(R.string.mp3_no_audio)
+            else getString(R.string.mp3_hint, quality?.mp3Size?.label ?: getString(R.string.size_unavailable))
+        binding.previewButton.isEnabled = !busy && quality?.preview != null
+        binding.qualityHint.setText(if (quality?.preview == null) R.string.preview_unavailable
+            else if (preparedVideo?.qualities?.size == 1) R.string.single_quality else R.string.choose_quality_hint)
+        binding.playDownloadedButton.visibility = if (savedVideo != null) View.VISIBLE else View.GONE
+        binding.playDownloadedButton.isEnabled = !busy
+    }
+
+    private fun formatFileSize(bytes: Long): String = formatBytes(bytes)
+
+    private fun showError(message: String) {
+        val version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
+        binding.errorDetails.text = "$message\n\nV-Get $version · Android ${Build.VERSION.RELEASE}（API ${Build.VERSION.SDK_INT}）"
+        binding.errorPanel.visibility = View.VISIBLE
+        binding.progressCard.visibility = View.VISIBLE
+        binding.progressBar.visibility = View.GONE
+        Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).setTextMaxLines(5)
+            .setBackgroundTint(getColor(R.color.error)).setTextColor(getColor(R.color.on_error)).show()
+    }
+
+    private fun showSuccess(message: String) {
+        Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).setTextMaxLines(4)
+            .setBackgroundTint(getColor(R.color.success)).setTextColor(getColor(R.color.on_success)).show()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        savedVideo?.let {
+            outState.putString("saved_uri", it.uri)
+            outState.putString("saved_path", it.filePath)
+            outState.putString("saved_mime", it.mimeType)
+            outState.putString("saved_title", savedTitle)
+        }
+        super.onSaveInstanceState(outState)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != PermissionHelper.STORAGE_PERMISSION_CODE) return
+        val pending = pendingDownload
+        pendingDownload = null
+        if (PermissionHelper.isPermissionGranted(grantResults)) {
+            if (pending != null && pending.video == preparedVideo && !busy) startDownload(pending.video, pending.quality, pending.format)
+        } else showError(getString(R.string.permission_required))
+    }
 }

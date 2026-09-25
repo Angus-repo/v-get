@@ -1,96 +1,263 @@
-# V-Get — Android Facebook 影片下載 App
+# V-Get - 社群影片下載器
 
-V-Get 是使用 Kotlin 製作的原生 Android App。貼上公開影片連結後，在手機選擇畫質並下載。影片解析直接在裝置上進行，無須架設伺服器、設定 API Key 或登入 Facebook。
+下載 Facebook、YouTube、Instagram、Threads 與小紅書公開影片的 Android 應用程式。可貼上影片連結或整段分享文字，也可從其他 App 直接分享至 V-Get。
 
-[English guide](README.md)
+## PR #2 與 main 整合
 
-## 功能
+保留已可用的 1.3.3 多平台介面及 `VideoDownloadService`／MediaStore 下載流程，包含小紅書連線重試、畫質與容量、試播及 MP3。這套流程取代 main 的 Facebook 專用 Activity、ViewModel 與 DownloadManager；仍維持下方所述的前景下載限制。簽章設定與版本保持不變。
 
-- 適合手機的可捲動介面、大型按鈕，以及淺色／深色主題。
-- 支援貼上網址，或從 Facebook「分享」文字至 V-Get。
-- 先查看影片標題，再選擇實際取得的 HD／SD MP4。Open Graph 備援來源僅標示 MP4，不推測畫質。
-- 使用 Android DownloadManager 在背景下載、重試與顯示完成通知。
-- 顯示下載進度，支援取消及開啟已下載影片。
-- 保存最近一筆系統下載 ID，重新開啟 App 可恢復狀態；目前不是完整的下載歷史。
-- 檔案儲存於 `Download/V-Get/`，可按「我的下載」查看。
+Facebook 接入 main 可取消、限制頁面大小的連線流程，保留導覽標頭、重新導向驗證及指定影片解析。HD／SD 接回現有畫質選單與容量查詢，不以推薦影片替代指定影片。留言串網址會被拒絕，請複製留言影片本身的連結。保留 main 的啟動圖示、備份排除設定與回歸測試。
+
+可執行 `./gradlew :app:testDebugUnitTest -PvgetLiveUrl="https://www.facebook.com/share/v/你的連結/"` 選擇性驗證 Facebook 實際解析及 MP4 檔頭；一般單元測試會跳過此項，不依賴 Facebook 即時可用性。
+
+## 1.3.3 小紅書連線改善
+
+- 小紅書分享頁遇到 DNS／TLS／連線錯誤時，透過 Cloudflare 加密 DNS 重新解析並重試一次。DNS 僅查詢主機名稱；保留原 HTTPS 網址、分享參數、主機名稱驗證與系統憑證驗證。其他平台及 HTTP 錯誤不觸發此重試。
+- 錯誤資訊保留在畫面上，可按「複製錯誤資訊」；內容包含失敗主機、一般連線與重試各自的 TLS／連線錯誤碼，以及 App／Android 版本，不顯示原始網址、權杖或引擎日誌。
+- 沿用原金鑰，versionCode 升至 8。使用者已於 2026-09-25 確認 1.3.3 在手機可用；先前 TLS 的確切原因仍未確認，並非所有憑證或網路限制都能透過重新解析解決。
+
+## 1.3.2 介面改善
+
+- 淺色／深色模式使用完整配色，卡片、文字、畫質選單、按鈕與通知不再混用明暗色。
+- 畫質名稱、格式資訊與檔案容量分行顯示；容量加粗，已選項目有勾選標記。
+- 版面依序分為貼上連結、影片下載、音訊下載與進度；文字放大時可自動換行，字體達 150% 時輸入區按鈕改為上下排列，下載引擎更新移至使用提示。
+- 沿用原金鑰，versionCode 升至 7。
+
+## 1.3.1 修正
+
+- 小紅書主要影片網址無法連線或下載不完整時，依序嘗試該畫質明確提供的備援網址；影片與 MP3 均適用，不切換其他畫質或筆記。
+- 備援重試前清除未完成的檔案；取消、登入要求、限流、儲存或轉換錯誤不會觸發備援下載。
+- 錯誤畫面標明「分析畫質／下載影片／下載 MP3」，保留 HTTP 狀態碼，並區分 DNS、安全連線與連線中斷。隱藏簽名網址與權杖。
+- 沿用既有簽章，versionCode 升至 6。
+
+## 1.3.0 新增功能
+
+- 小紅書／RedNote 影片筆記：自動辨識中文分享文字中的 `xhslink.cn`、`xhslink.com` 短網址，以及完整筆記網址；保留 `xsec_token` 等必要參數，只解析指定筆記的公開影片。
+- 選擇解析度時同時顯示檔案容量。使用來源提供的大小，或從影片標頭查詢；位元率估算、影音合併及 MP3 容量會標示「約」。無法取得時顯示「容量未提供」。
+- 「下載 MP3 音訊」會將所選影片的音軌轉為 192 kbps MP3。YouTube 分離影音只下載已配對的音軌；其他來源可能需先暫存影片。沒有音軌時無法轉換。
+- 影片與 MP3 均存入 `Downloads/V-Get/`，下載完成後可在 App 內播放。
+
+小紅書若導向登入或驗證頁，會提示限制，不會改抓其他筆記。本版本不提供登入或 Cookie 匯入。保留 1.2.1 的固定簽章，目前版本為 1.3.3（versionCode 8）。
+
+## 功能特色
+
+- ✨ 簡潔直觀的使用者介面
+- 📱 支援 Facebook、YouTube／Shorts、Instagram 貼文／Reels、Threads 與小紅書影片貼文
+- 📊 即時下載進度顯示
+- 💾 自動儲存至 Downloads/V-Get 資料夾
+- 🔐 完整的權限管理
+- 🌐 自動辨識平台、分享文字與短網址
+- 🎬 自動合併 YouTube 的影像與音訊
+- 🎚️ 先分析連結，再選擇來源實際提供的畫質下載
+- ▶️ 在 App 內試播所選畫質，也可播放剛下載的檔案
+- 🔄 可在 App 內更新 YouTube／Instagram 下載引擎
+
+## 系統需求
+
+- Android 7.0 (API Level 24) 或更高版本
+- 網路連線權限
+- 儲存空間權限
 
 ## 使用方式
 
-1. 複製公開影片本身的連結，或使用「分享 → V-Get」。
-2. 按「貼上連結」，再按「解析影片」。
-3. 選擇可用畫質，按「下載到手機」。
-4. 完成後按「播放影片」，或透過「我的下載」開啟檔案。
+1. **複製影片連結**
+   - 在 Facebook、YouTube、Instagram 或 Threads 中，找到想要下載的影片
+   - 點擊分享按鈕，選擇「複製連結」
 
-分享只會填入網址，選擇下載後才會開始傳輸。有工作進行時，請先完成或取消，再分享另一個連結。
+2. **貼上連結**
+   - 開啟 V-Get 應用程式
+   - 點擊「貼上」按鈕，自動貼上剛才複製的連結
+   - 或手動在輸入框中貼上連結
+   - 也可在其他 App 的「分享」選單選擇 V-Get
 
-## 支援範圍
+3. **選擇畫質並下載**
+   - 點擊「分析畫質」，列出來源實際提供的選項
+   - 選擇畫質，再點擊「試播所選畫質」或「下載所選畫質」
+   - 分開提供的影音會配對試播，下載時自動合併；不會自行換成其他畫質
+   - 下載完成後會顯示儲存位置
 
-接受 Facebook 標準主網域、手機版、`fb.com` 與 `fb.watch` 連結，包含 `/watch/?v=…`、`/reel/…`、`/…/videos/…`。短網址與分享網址必須能導向可公開存取的影片頁面。
+4. **查看影片**
+   - 下載完成的影片會儲存在：`Downloads/V-Get/` 資料夾
+   - 點擊「播放上次下載」可直接在 App 內檢查，也可使用其他影片播放器
 
-只支援頁面直接提供的完整 MP4 影片。需要登入、私人影片、直播、限時動態、DASH／HLS 及分離影音串流目前不支援。App 不使用登入 Cookie、帳號密碼、後端解析服務或外部命令列程式。留言中的影片請複製影片本身的網址；留言串連結會被拒絕，以免下載到原貼文。
+YouTube／Instagram 依來源資料顯示解析度、幀率及檔案格式；相同條件優先選擇較普遍支援的編碼。Threads 列出指定貼文提供的不同完整影片版本；Facebook 有提供時列出 HD／SD。只有一種版本就只顯示一個選項，未提供解析度時明確標示，不推測數值。
 
-Facebook 頁面格式或地區／網路限制可能導致解析失敗，公開影片不保證一定可下載。有影片 ID 時會比對指定影片，多個無法辨識的結果會顯示錯誤，不會直接下載推薦影片。下載連結過期時請重新解析。
+## 支援的 URL 格式
 
-## 開發與安裝
+- `https://www.facebook.com/watch/?v=xxxxx`
+- `https://www.facebook.com/username/videos/xxxxx`
+- `https://fb.watch/xxxxx`
+- `https://m.facebook.com/...`
+- Facebook 留言影片本身的連結；不支援留言串網址
 
-- Android 7.0 以上（API 24+）。
-- JDK **17**、Android SDK **34**，以及支援 AGP 8.1 的 Android Studio。
-- 專案附有 Gradle **8.5** wrapper，僅有 `:app` 模組。
-- 不需要 Spring Boot、Node.js、Python 或 FFmpeg 執行環境。
-
-```bash
-git clone https://github.com/Angus-repo/v-get.git
-cd v-get
-./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
-./gradlew :app:installDebug
-```
-
-設定 `ANDROID_HOME`，或在不提交版本控制的 `local.properties` 設定 `sdk.dir`。Debug APK 位於 `app/build/outputs/apk/debug/app-debug.apk`。
-
-## 原生架構
-
-| 元件 | 用途 |
+| 平台 | 支援格式 |
 | --- | --- |
-| MainActivity / XML | 手機介面、剪貼簿、分享、權限及播放 |
-| MainViewModel | 旋轉時保留狀態、取消工作、恢復最近的系統下載 |
-| FacebookUrl / FacebookPageParser | 網址驗證、影片 ID 比對、實際畫質解析 |
-| VideoExtractor | 手機端 OkHttp 請求，支援取消、頁面大小限制與重新導向驗證 |
-| VideoDownloader | Android 系統下載、進度、取消與安全檔名 |
+| YouTube | `youtube.com/watch?v=VIDEO_ID`、`youtu.be/VIDEO_ID`、`youtube.com/shorts/VIDEO_ID` |
+| Instagram | `instagram.com/p/CODE/`、`instagram.com/reel/CODE/`、`instagram.com/tv/CODE/`、分享短連結 |
+| Threads | `threads.com/@user/post/CODE`、`threads.net/@user/post/CODE`、`threads.com/t/CODE`、`threads.com/share/CODE` |
+| 小紅書／RedNote | `xhslink.cn/o/CODE`、`xhslink.com/m/CODE`、`xiaohongshu.com/explore/NOTE_ID`、`xiaohongshu.com/discovery/item/NOTE_ID`、`rednote.com/explore/NOTE_ID` |
 
-使用 AndroidX、Material Components、Kotlin coroutines、OkHttp、Gson 與 jsoup。專案不包含網頁或伺服器模組。
+## 專案結構
 
-## 權限
-
-- `INTERNET`：取得公開頁面與下載影片。
-- `WRITE_EXTERNAL_STORAGE`：僅 Android 7–9（API 24–28）在開始下載時要求。
-- Android 10 以上使用系統下載服務，不要求廣泛的儲存／媒體讀取權限，也不讀取使用者的影片庫。
-
-API 依據：[DownloadManager](https://developer.android.com/reference/android/app/DownloadManager)、[公開下載目錄](https://developer.android.com/reference/android/app/DownloadManager.Request#setDestinationInExternalPublicDir(java.lang.String,%20java.lang.String))。
-
-## 驗證與發佈前檢查
-
-單元測試涵蓋網址與主機驗證、簽章參數保留、指定影片選取、巢狀／舊版資料、模糊結果、非支援串流、安全檔名與分享連結重新導向。HTTP 回歸測試確認分享網址及影片頁請求都包含導覽標頭；缺少這些標頭曾導致公開分享連結回傳 HTTP 400。App 不使用登入或瀏覽器 Cookie。
-
-預設會跳過實際連線測試，其餘測試使用合成資料。若要指定公開連結，驗證解析結果與每個畫質的 MP4 檔頭，可執行：
-
-```bash
-./gradlew :app:testDebugUnitTest -PvgetLiveUrl="https://www.facebook.com/share/v/你的連結/"
+```
+app/
+├── src/main/
+│   ├── java/com/vget/app/
+│   │   ├── MainActivity.kt              # 主要活動
+│   │   ├── PlayerActivity.kt            # 所選畫質試播與已下載檔案播放
+│   │   ├── network/
+│   │   │   ├── VideoExtractor.kt        # 影片連結提取器
+│   │   │   ├── VideoDownloader.kt       # 直接下載影片
+│   │   │   ├── VideoDownloadService.kt  # 平台分流
+│   │   │   ├── VideoSource.kt           # 網址驗證與正規化
+│   │   │   ├── YtDlpDownloader.kt       # YouTube／Instagram 引擎
+│   │   │   ├── YtDlpMetadataParser.kt   # 畫質、音軌配對與試播串流
+│   │   │   ├── VideoDetails.kt          # 畫質選項與已儲存影片資料
+│   │   │   ├── ThreadsPageParser.kt     # 指定 Threads 貼文解析
+│   │   │   └── VideoStorage.kt          # MediaStore 與舊版儲存
+│   │   └── utils/
+│   │       └── PermissionHelper.kt      # 權限管理工具
+│   ├── res/
+│   │   ├── layout/
+│   │   │   └── activity_main.xml        # 主介面佈局
+│   │   ├── values/
+│   │   │   ├── strings.xml              # 字串資源
+│   │   │   ├── colors.xml               # 顏色定義
+│   │   │   └── themes.xml               # 主題樣式
+│   │   └── xml/
+│   │       ├── backup_rules.xml
+│   │       └── data_extraction_rules.xml
+│   └── AndroidManifest.xml              # 應用程式配置
+├── build.gradle                          # 應用程式建置配置
+└── proguard-rules.pro                    # ProGuard 規則
 ```
 
-這項測試會實際連線，但不涵蓋 Android 系統下載管理員與手機播放器。1.0.1 版（version code 2）包含分享連結 HTTP 400 的修正。
+## 開發環境設置
 
-發佈前請在裝置確認：
+### 前置要求
 
-- API 28 的儲存權限允許／拒絕流程；API 29 以上不出現媒體權限要求。
-- 分享公開影片、選擇畫質，並播放下載檔案確認影音。
-- 下載時旋轉、切換 App、重新開啟，進度可接回系統工作。
-- 取消後清除未完成檔案，先前完成的影片仍保留。
-- 私人連結、過期連結、斷網與儲存空間不足的錯誤提示。
+- Android Studio Giraffe 或更新版本
+- JDK 17
+- Android SDK API Level 34
 
-建置與單元測試通過不等於已完成 Facebook 實際連線和實機驗證。目前維持 target SDK 34，商店發佈前請確認上架要求。
+### 建置步驟
 
-## 授權與使用
+1. **Clone 專案**
+   ```bash
+   git clone https://github.com/Angus-repo/v-get.git
+   cd v-get
+   ```
 
-本專案僅供學習和個人使用，請勿用於商業用途。請只下載你擁有或已獲授權的影片，並遵守適用法律及 Facebook 服務條款。開發者不對不當使用負責。
+2. **開啟專案**
+   - 使用 Android Studio 開啟專案
+   - 等待 Gradle 同步完成
 
-本應用程式與 Facebook 無關，並非官方產品。如有問題或建議，歡迎提出 Issue 或 Pull Request。
+3. **建置應用程式**
+   ```bash
+   ./gradlew testDebugUnitTest assembleDebug lintDebug
+   ```
+
+4. **安裝至裝置**
+   ```bash
+   ./gradlew installDebug
+   ```
+
+APK 固定沿用 V-Get 1.2.1 的簽章，後續版本可覆蓋更新。請先取回私人備份的金鑰並依[簽章設定](docs/SIGNING.md)配置；金鑰遺失或憑證不同時會停止打包。
+
+Pull Request 會執行不需簽章金鑰的測試與 lint。推送至 `main` 或手動執行時，另使用 repository secret `VGET_KEYSTORE_BASE64` 建置並提供 `v-get-debug` APK；首次使用前需設定此 Secret。各次執行都會提供測試與 lint 報告。
+
+## 使用的技術與函式庫
+
+- **Kotlin** - 主要開發語言
+- **Material Design Components** - UI 元件
+- **OkHttp** - HTTP 客戶端
+- **Kotlin Coroutines** - 非同步處理
+- **ViewBinding** - 視圖綁定
+- **AndroidX Libraries** - Android 擴充函式庫
+- **Media3 ExoPlayer** - App 內串流試播與本機播放
+
+## 權限說明
+
+應用程式需要以下權限：
+
+- `INTERNET` - 下載影片所需
+- `WRITE_EXTERNAL_STORAGE` - 僅 Android 7～9 需要
+- Android 10 以上使用 MediaStore 儲存新下載的影片，不需取得既有相片或影片的讀取權限。
+
+## 注意事項
+
+⚠️ **重要提醒**
+
+1. 請確保您有權下載該影片
+2. 尊重版權，僅供個人使用
+3. 不要下載受版權保護的內容
+4. 某些私人影片或受限影片可能無法下載
+5. 各平台可能調整網頁或限制流量，導致暫時無法解析
+
+## 已知問題
+
+- 僅支援不需登入的公開影片；不支援直播、尚未開始的影片或 DRM 內容
+- 不批次下載播放清單或帳號；多影片貼文只下載第一支影片
+- 下載期間請保持 App 開啟；活動結束時會取消工作
+- 需要暫存空間來下載、合併影音並複製完成的影片
+- 線上試播需要可直接播放或 HLS 的網址；僅提供片段的格式須先下載再播放，選取時會顯示說明
+- 播放能力取決於裝置支援的編碼；高解析度編碼無法播放時，可改選來源提供的 H.264 版本
+- 影片網址有時效；試播或所選畫質失效時，請重新分析連結
+- Threads 依貼文 ID 尋找指定影片，不會以推薦影片替代
+- 支援 Threads 貼文內嵌的 Instagram Reels／影片；僅讀取該篇貼文的明確附件，不自動跟隨引用貼文或任意外部連結
+- Threads 頁面必須提供公開的完整影片網址；登入限制、僅提供 DASH 或網頁結構變動可能導致無法解析
+- 私人帳號的影片需要登入才能下載（目前不支援）
+- Facebook Stories 暫不支援
+
+## 未來計劃
+
+- [ ] 支援批次下載
+- [x] 下載前選擇來源提供的畫質
+- [x] 所選畫質試播與已下載檔案播放
+- [x] 支援 YouTube、Instagram 與 Threads 影片下載
+- [ ] 加入下載歷史記錄
+- [ ] 深色模式最佳化
+
+## 疑難排解
+
+### 下載失敗
+
+1. 確認網路連線正常
+2. 確認 URL 格式正確
+3. 確認已授予儲存空間權限
+4. 嘗試重新複製連結
+5. 首次分析 YouTube／Instagram 時會自動更新引擎（需要網路）；之後若解析失敗，可點擊「**更新下載引擎**」。更新來源為 yt-dlp 官方穩定版；更新失敗會嘗試內建版本，之後可再更新。
+
+### 找不到影片
+
+- 確認影片是公開的
+- 某些影片可能有地區限制
+- 嘗試在瀏覽器中開啟連結確認影片存在
+
+### 權限問題
+
+- 進入系統設定 > 應用程式 > V-Get > 權限
+- Android 7～9 可手動開啟儲存空間權限；Android 10 以上不需要
+
+## 下載引擎與驗證
+
+- YouTube／Instagram 使用 [youtubedl-android 0.18.1](https://github.com/yausername/youtubedl-android)（GPL-3.0），包含 Python、QuickJS 與 yt-dlp；另使用 FFmpeg 合併影音。原生函式庫使 APK 體積增加。
+- Threads 使用獨立的公開頁面解析器；必要時讀取公開連結預覽頁面。不支援登入、匯入 Cookie 或私人帳號。
+- 單元測試涵蓋網址格式、偽造網域、貼文定位、混合輪播、簽章網址保留、下載完成檔案判斷、指定畫質參數、畫質解析、音軌配對與試播請求標頭。
+- 待實機驗證：四平台公開影片、所選畫質與聲音試播、下載檔案播放、取消下載、Android 9／10+ 儲存，以及私人／已刪除／限流錯誤。建置與單元測試不代表已完成實機播放驗證，也不保證外部平台即時可用性。
+
+## 授權
+
+本專案僅供學習和個人使用。請勿用於商業用途。
+
+## 免責聲明
+
+此應用程式僅供教育和研究目的。使用者應自行承擔使用本應用程式的責任，並確保遵守所有適用的法律和 來源平台的服務條款。開發者不對任何因使用本應用程式而產生的問題負責。
+
+## 聯絡方式
+
+如有問題或建議，歡迎提出 Issue 或 Pull Request。
+
+---
+
+**注意：** 本應用程式並非 Facebook、YouTube、Instagram 或 Threads 的官方產品。

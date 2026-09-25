@@ -1,5 +1,6 @@
 package com.vget.app.network
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
@@ -22,7 +23,18 @@ class VideoExtractor internal constructor(private val client: OkHttpClient) {
         .callTimeout(45, TimeUnit.SECONDS)
         .build())
 
-    suspend fun extractVideo(url: String): VideoInfo {
+    /** Adapts Facebook's validated formats to the multi-platform preview/download flow. */
+    suspend fun extractVideoUrl(url: String): Result<VideoInfo> = try {
+        val video = extractVideo(url)
+        val qualities = FacebookQualityParser.fromVideo(video, VideoSource.parse(video.sourceUrl))
+        Result.success(VideoInfo(qualities.first().directUrl!!, video.sourceUrl, video.title, qualities))
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Exception) {
+        Result.failure(error)
+    }
+
+    suspend fun extractVideo(url: String): FacebookVideoInfo {
         var current = FacebookUrl.parse(url)
         repeat(6) {
             val page = fetch(current)
@@ -63,7 +75,7 @@ class VideoExtractor internal constructor(private val client: OkHttpClient) {
                             Page(redirect = it.header("Location")
                                 ?: throw IOException("Facebook 連結重新導向失敗"))
                         } else {
-                            if (!it.isSuccessful) throw IOException("Facebook 暫時無法提供影片（${it.code}）")
+                            if (!it.isSuccessful) throw HttpStatusException(it.code, "Facebook 暫時無法提供影片")
                             val body = it.body ?: throw IOException("無法取得影片頁面")
                             val source = body.source()
                             if (source.request(8L * 1024 * 1024 + 1)) {
@@ -81,6 +93,14 @@ class VideoExtractor internal constructor(private val client: OkHttpClient) {
     }
 
     private data class Page(val html: String = "", val redirect: String? = null)
+
+    // Shared result shape retained for the Threads and Xiaohongshu page parsers.
+    data class VideoInfo(
+        val videoUrl: String,
+        val sourceUrl: String,
+        val title: String,
+        val qualities: List<VideoQuality> = emptyList()
+    )
 
     companion object {
         const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +

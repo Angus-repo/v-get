@@ -57,6 +57,54 @@ class VideoExtractorTest {
         }
     }
 
+    @Test fun adaptsOnlyTheRequestedVideoToDownloadAndPreviewChoices() = runBlocking {
+        val signedHd = "https://video.xx.fbcdn.net/hd.mp4?sig=A%2FB+C&token=1"
+        val sd = "https://video.xx.fbcdn.net/sd.mp4"
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            response(chain.request(), 200, """
+                <meta property="og:title" content="Requested video">
+                <script type="application/json">[
+                  {"id":"999","hd_src":"https://video.xx.fbcdn.net/recommendation.mp4"},
+                  {"id":"123","hd_src":"$signedHd","sd_src":"$sd"}
+                ]</script>
+            """.trimIndent())
+        }.build()
+        val info = VideoExtractor(client).extractVideoUrl("https://www.facebook.com/reel/123/").getOrThrow()
+        assertEquals("Requested video", info.title)
+        assertEquals(signedHd, info.videoUrl)
+        assertEquals(listOf("hd", "sd"), info.qualities.map { it.id })
+        assertEquals(listOf(signedHd, sd), info.qualities.map { it.directUrl })
+        info.qualities.forEach { quality ->
+            val preview = requireNotNull(quality.preview)
+            assertEquals(quality.directUrl, preview.video.url)
+            assertEquals("https://www.facebook.com/", preview.video.headers["Referer"])
+            assertNull(quality.height)
+            assertNull(quality.fileSize)
+            assertFalse(quality.silent)
+        }
+    }
+
+    @Test fun adapterDoesNotFallBackToUnrelatedMediaWhenTheTargetIsMissing() = runBlocking {
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            response(chain.request(), 200, """
+                <script type="application/json">{"id":"999","hd_src":"https://video.xx.fbcdn.net/other.mp4"}</script>
+                <meta property="og:video" content="https://video.xx.fbcdn.net/other.mp4">
+            """.trimIndent())
+        }.build()
+        val result = VideoExtractor(client).extractVideoUrl("https://www.facebook.com/reel/123/")
+        assertTrue(result.exceptionOrNull() is IOException)
+    }
+
+    @Test fun adapterPreservesHttpStatusForTheSharedErrorPanel() = runBlocking {
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            response(chain.request(), 403, "<html>Forbidden</html>")
+        }.build()
+        val result = VideoExtractor(client).extractVideoUrl("https://www.facebook.com/reel/123/")
+        val error = result.exceptionOrNull() as HttpStatusException
+        assertEquals(403, error.statusCode)
+        assertTrue(DownloadErrors.message(error, VideoPlatform.FACEBOOK).contains("HTTP 403"))
+    }
+
     @Test fun doesNotTreatAnHttpErrorPageAsVideoData() = runBlocking {
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             response(chain.request(), 400, "<html><title>Error</title>Sorry, something went wrong.</html>")

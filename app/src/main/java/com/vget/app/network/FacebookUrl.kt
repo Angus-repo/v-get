@@ -5,7 +5,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 object FacebookUrl {
     private val pageHosts = setOf("facebook.com", "www.facebook.com", "m.facebook.com",
-        "mbasic.facebook.com", "web.facebook.com", "fb.com", "www.fb.com", "fb.watch", "www.fb.watch")
+        "mobile.facebook.com", "mbasic.facebook.com", "web.facebook.com", "fb.com", "www.fb.com", "fb.watch", "www.fb.watch")
 
     fun parse(input: String): HttpUrl {
         val raw = input.trim()
@@ -19,7 +19,7 @@ object FacebookUrl {
             "請複製留言影片本身的連結，留言串連結無法辨識指定影片"
         }
         return url.newBuilder().scheme("https").port(443).fragment(null)
-            .apply { if (url.host == "m.facebook.com" || url.host == "mbasic.facebook.com") host("www.facebook.com") }
+            .apply { if (url.host in setOf("m.facebook.com", "mobile.facebook.com", "mbasic.facebook.com")) host("www.facebook.com") }
             .build()
     }
 
