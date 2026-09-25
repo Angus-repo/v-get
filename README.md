@@ -2,6 +2,11 @@
 
 V-Get downloads public Facebook, YouTube, Instagram, Threads and Xiaohongshu/RedNote videos on Android. Paste a video link or the complete share text, or share it directly to V-Get from another app.
 
+## New in 1.3.8
+
+- Starting an MP3 download now also smoothly scrolls to the beginning of section 2 (Choose quality), using the same behavior as video downloads. Permission handling and progress updates keep the same one-time scroll behavior.
+- Retain the original signing identity. Version is 1.3.8 (versionCode 13).
+
 ## New in 1.3.7
 
 - Starting a video download smoothly scrolls to the beginning of section 2 (Choose quality), including after granting storage permission. Progress updates do not repeat the scroll.
@@ -65,7 +70,7 @@ For a known restricted sample, add `-PvgetLiveExpectedAccess=AGE_RESTRICTED` or 
 - Download the selected audio as a real 192 kbps MP3. Separate YouTube audio is selected directly; other sources may require downloading the video before conversion. Silent sources cannot produce MP3 audio.
 - Both videos and MP3 files use `Downloads/V-Get/` and support playback after download.
 
-Login or verification redirects stop with an actionable message; this version does not add login or cookie import. Version 1.3.7 (versionCode 12) retains the existing 1.2.1 signing key.
+Login or verification redirects stop with an actionable message; this version does not add login or cookie import. Version 1.3.8 (versionCode 13) retains the existing 1.2.1 signing key.
 
 > Looking for the Traditional Chinese guide? Check out [README_zh_TW.md](README_zh_TW.md).
 

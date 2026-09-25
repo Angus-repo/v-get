@@ -178,7 +178,7 @@ class MainActivity : AppCompatActivity() {
             setBusy(true)
             binding.statusText.setText(R.string.downloading)
             // Position section 2 after the download controls have been laid out.
-            if (format == DownloadFormat.VIDEO) binding.root.doOnLayout {
+            binding.root.doOnLayout {
                 binding.root.smoothScrollTo(0, binding.qualityCard.top)
             }
             try {
