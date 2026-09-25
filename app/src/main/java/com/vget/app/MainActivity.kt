@@ -11,6 +11,7 @@ import android.widget.AdapterView
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.doOnLayout
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
@@ -176,6 +177,10 @@ class MainActivity : AppCompatActivity() {
         activeJob = lifecycleScope.launch {
             setBusy(true)
             binding.statusText.setText(R.string.downloading)
+            // Position section 2 after the download controls have been laid out.
+            if (format == DownloadFormat.VIDEO) binding.root.doOnLayout {
+                binding.root.smoothScrollTo(0, binding.qualityCard.top)
+            }
             try {
                 downloads.download(video, quality, format).collect { progress ->
                     when (progress) {
