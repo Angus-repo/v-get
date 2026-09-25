@@ -72,4 +72,40 @@ class FacebookPageParserTest {
             assertThrows(IOException::class.java) { FacebookPageParser.parse(it, source) }
         }
     }
+
+    @Test fun identifiesTheObservedMobileAgeGateWithAnEncodedLineBreak() {
+        val error = assertThrows(FacebookPageException::class.java) {
+            FacebookPageParser.parse("""<h1><span>Log in to view this 18+&#10;content</span></h1>
+                <div>It may be inappropriate for people under&#10;18.</div>""", source)
+        }
+        assertEquals(FacebookPageException.Reason.AGE_RESTRICTED, error.reason)
+        assertTrue(error.requiresLogin)
+        val message = DownloadErrors.message(error, VideoPlatform.FACEBOOK)
+        assertTrue(message.contains("18+"))
+        assertTrue(message.contains("必須登入"))
+        assertFalse(message.contains("連線失敗"))
+    }
+
+    @Test fun identifiesAnExplicitLoginHeading() {
+        val error = assertThrows(FacebookPageException::class.java) {
+            FacebookPageParser.parse("<h1>Log in to see this content</h1>", source)
+        }
+        assertEquals(FacebookPageException.Reason.LOGIN_REQUIRED, error.reason)
+        assertTrue(error.requiresLogin)
+    }
+
+    @Test fun genericLoginButtonsOrScriptStringsDoNotProveAnAccessRestriction() {
+        val error = assertThrows(FacebookPageException::class.java) {
+            FacebookPageParser.parse("""<button>Log in</button><h1>A public video about age 18+</h1>
+                <script>var translation = "Log in to view this 18+ content";</script>""", source)
+        }
+        assertEquals(FacebookPageException.Reason.NO_MEDIA, error.reason)
+        assertFalse(error.requiresLogin)
+    }
+
+    @Test fun anAgeRelatedVideoTitleDoesNotBlockAvailablePublicMedia() {
+        val html = page("""{"id":"123","sd_src":"$sd"}""") +
+            "<h1>Log in to view this 18+ content</h1>"
+        assertEquals(sd, FacebookPageParser.parse(html, source).formats.single().url)
+    }
 }

@@ -13,6 +13,16 @@ class VideoExtractorLiveTest {
     @Test fun resolvesProvidedPublicLinkAndReadsEachMp4Header() = runBlocking {
         val url = System.getProperty("vget.liveUrl").orEmpty()
         assumeTrue("Set the vgetLiveUrl Gradle property to run the live check", url.isNotBlank())
+        val expectedAccess = System.getProperty("vget.liveExpectedAccess").orEmpty()
+        if (expectedAccess.isNotBlank()) {
+            val result = VideoExtractor().extractVideoUrl(url)
+            assertTrue("Expected a Facebook access restriction", result.isFailure)
+            val error = result.exceptionOrNull() as FacebookPageException
+            assertEquals(FacebookPageException.Reason.valueOf(expectedAccess), error.reason)
+            assertTrue(error.requiresLogin)
+            println("Live check: Facebook explicitly requires ${error.reason}; no media download attempted")
+            return@runBlocking
+        }
         val info = VideoExtractor().extractVideo(url)
         assertTrue(info.formats.isNotEmpty())
         val client = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS)

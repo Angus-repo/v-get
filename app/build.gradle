@@ -14,8 +14,8 @@ android {
         applicationId "com.vget.app"
         minSdk 24
         targetSdk 34
-        versionCode 8
-        versionName "1.3.3"
+        versionCode 10
+        versionName "1.3.5"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
@@ -43,6 +43,7 @@ android {
     testOptions {
         unitTests.all {
             systemProperty 'vget.liveUrl', project.findProperty('vgetLiveUrl') ?: ''
+            systemProperty 'vget.liveExpectedAccess', project.findProperty('vgetLiveExpectedAccess') ?: ''
         }
     }
     packaging {

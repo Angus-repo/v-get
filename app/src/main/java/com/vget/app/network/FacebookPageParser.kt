@@ -5,7 +5,6 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
-import java.io.IOException
 
 data class VideoFormat(val quality: String, val url: String)
 data class FacebookVideoInfo(val title: String, val sourceUrl: String, val formats: List<VideoFormat>)
@@ -43,9 +42,7 @@ object FacebookPageParser {
                 .map { it.attr("content") })
         }.distinctBy { it.url }.distinctBy { it.quality }.sortedBy { if (it.quality == "HD") 0 else 1 }
 
-        if (formats.isEmpty()) throw IOException(
-            "找不到可下載的公開影片。請使用影片原始連結；需要登入、私人影片、直播或分離影音串流目前不支援。"
-        )
+        if (formats.isEmpty()) throw FacebookPageException.from(document)
         return FacebookVideoInfo(title.take(200), sourceUrl, formats)
     }
 

@@ -27,8 +27,8 @@ class VideoDownloadService(context: Context) {
 
     fun download(video: VideoDetails, quality: VideoQuality, format: DownloadFormat = DownloadFormat.VIDEO): Flow<VideoDownloader.DownloadProgress> {
         require(quality in video.qualities) { "請重新分析並選擇有效畫質" }
-        return if (format == DownloadFormat.MP3 || quality.formatSelector != null) engine.download(video.source, quality, format)
-        else directDownloader.downloadVideo(quality, video.source)
+        return if (format == DownloadFormat.MP3 || quality.formatSelector != null) engine.download(video, quality, format)
+        else directDownloader.downloadVideo(video, quality)
     }
 
     suspend fun updateEngine() { engine.updateEngine() }

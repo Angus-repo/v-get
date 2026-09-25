@@ -2,6 +2,20 @@
 
 V-Get downloads public Facebook, YouTube, Instagram, Threads and Xiaohongshu/RedNote videos on Android. Paste a video link or the complete share text, or share it directly to V-Get from another app.
 
+## New in 1.3.5
+
+- When a Facebook desktop page contains no media, inspect the same resolved video's mobile page once. Preserve the requested video ID across redirects and reject a redirect to a different video.
+- Recognize explicit login and 18+ access notices. The screen explains that Facebook requires login, instead of presenting the restriction as an invalid video URL. Generic login buttons and script text do not establish an access restriction.
+- The reported share link `https://www.facebook.com/share/v/19kggoHxPN/` resolves to video `2117957879137667`; on 2026-09-25, its anonymous mobile page explicitly required login to view 18+ content. This version improves diagnosis; it does not enable downloading that restricted video or add login/cookie import.
+- Retain title-based video/MP3 filenames and the original signing identity. Version is 1.3.5 (versionCode 10).
+
+## New in 1.3.4
+
+- Downloaded videos and MP3 files use the title obtained during page analysis, for example `My trip.mp4` and `My trip.mp3`; the actual media format determines the extension.
+- Preserve Chinese, spaces and emoji. Replace unsafe filename characters, shorten very long titles safely and use `V-Get` if no usable title is available.
+- Repeated downloads get a copy number such as `My trip (1).mp4`, preserving existing files. The completion message uses the actual filename chosen by Android.
+- Applies to all five platforms and both download engines. Existing files are not renamed. Version is 1.3.4 (versionCode 9), with the retained signing identity.
+
 ## PR #2 integration with main
 
 The working 1.3.3 multi-platform interface and `VideoDownloadService` / MediaStore pipeline are retained, including Xiaohongshu connection retries, video quality/capacity, preview and MP3. They supersede main's Facebook-only activity, ViewModel and DownloadManager pipeline; foreground download behavior remains as documented below. The signing configuration and version stay unchanged.
@@ -9,6 +23,8 @@ The working 1.3.3 multi-platform interface and `VideoDownloadService` / MediaSto
 Facebook now uses main's cancellable, size-limited page requests, navigation headers, validated redirects and target-video parser. Its HD/SD formats feed the existing quality selector and file-size lookup. Recommendations are not substituted for the requested video. Comment-thread URLs are rejected; copy the comment video's own link instead. Main's launcher assets, backup exclusions and regression tests are retained.
 
 The optional Facebook network test is available with `./gradlew :app:testDebugUnitTest -PvgetLiveUrl="https://www.facebook.com/share/v/YOUR_LINK/"`. It checks extraction and MP4 headers; normal unit tests skip it and do not depend on Facebook availability.
+
+For a known restricted sample, add `-PvgetLiveExpectedAccess=AGE_RESTRICTED` or `LOGIN_REQUIRED`. This checks the explicit access notice and does not attempt a media download. The normal test remains opt-in.
 
 ## New in 1.3.3
 
@@ -37,7 +53,7 @@ The optional Facebook network test is available with `./gradlew :app:testDebugUn
 - Download the selected audio as a real 192 kbps MP3. Separate YouTube audio is selected directly; other sources may require downloading the video before conversion. Silent sources cannot produce MP3 audio.
 - Both videos and MP3 files use `Downloads/V-Get/` and support playback after download.
 
-Login or verification redirects stop with an actionable message; this version does not add login or cookie import. Version 1.3.3 (versionCode 8) retains the existing 1.2.1 signing key.
+Login or verification redirects stop with an actionable message; this version does not add login or cookie import. Version 1.3.5 (versionCode 10) retains the existing 1.2.1 signing key.
 
 > Looking for the Traditional Chinese guide? Check out [README_zh_TW.md](README_zh_TW.md).
 

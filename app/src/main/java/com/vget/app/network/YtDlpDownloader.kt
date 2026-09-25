@@ -58,7 +58,8 @@ internal class YtDlpDownloader(context: Context) {
         }
     }
 
-    fun download(source: VideoSource, quality: VideoQuality, format: DownloadFormat = DownloadFormat.VIDEO): Flow<VideoDownloader.DownloadProgress> = channelFlow {
+    fun download(video: VideoDetails, quality: VideoQuality, format: DownloadFormat = DownloadFormat.VIDEO): Flow<VideoDownloader.DownloadProgress> = channelFlow {
+        val source = video.source
         val id = UUID.randomUUID().toString()
         val directory = File(context.cacheDir, "vget-$id")
         try {
@@ -89,7 +90,7 @@ internal class YtDlpDownloader(context: Context) {
             currentCoroutineContext().ensureActive()
             send(VideoDownloader.DownloadProgress.Processing(if (format == DownloadFormat.MP3) "正在儲存 MP3 音訊..." else "正在儲存影片..."))
             val saved = withContext(Dispatchers.IO) {
-                VideoStorage(context).save(file, "${source.platform.name.lowercase()}_$id.${file.extension}")
+                VideoStorage(context).save(file, video.title)
             }
             send(VideoDownloader.DownloadProgress.Completed(saved))
         } catch (e: CancellationException) {

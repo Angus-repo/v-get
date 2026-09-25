@@ -96,13 +96,16 @@ class VideoExtractorTest {
     }
 
     @Test fun adapterPreservesHttpStatusForTheSharedErrorPanel() = runBlocking {
+        var calls = 0
         val client = OkHttpClient.Builder().addInterceptor { chain ->
+            calls++
             response(chain.request(), 403, "<html>Forbidden</html>")
         }.build()
         val result = VideoExtractor(client).extractVideoUrl("https://www.facebook.com/reel/123/")
         val error = result.exceptionOrNull() as HttpStatusException
         assertEquals(403, error.statusCode)
         assertTrue(DownloadErrors.message(error, VideoPlatform.FACEBOOK).contains("HTTP 403"))
+        assertEquals(1, calls)
     }
 
     @Test fun doesNotTreatAnHttpErrorPageAsVideoData() = runBlocking {
@@ -115,5 +118,92 @@ class VideoExtractorTest {
         } catch (error: IOException) {
             assertTrue(error.message.orEmpty().contains("400"))
         }
+    }
+
+    @Test fun anEmptyDesktopSharePageGetsTheExplicitAgeRestrictionFromTheSameVideo() = runBlocking {
+        val requests = mutableListOf<Request>()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            requests += request
+            when {
+                request.url.encodedPath.startsWith("/share/") -> response(request, 302, location = "/reel/123/?rdid=example")
+                request.header("User-Agent") == VideoExtractor.USER_AGENT -> response(request, 200, "<title>Facebook</title>")
+                else -> response(request, 200, "<h1>Log in to view this 18+&#10;content</h1>")
+            }
+        }.build()
+        val result = VideoExtractor(client).extractVideoUrl("https://www.facebook.com/share/v/example-token/")
+        val error = result.exceptionOrNull() as FacebookPageException
+        assertEquals(FacebookPageException.Reason.AGE_RESTRICTED, error.reason)
+        assertEquals(3, requests.size)
+        assertEquals(requests[1].url, requests[2].url)
+        assertEquals("en-US,en;q=0.9", requests[2].header("Accept-Language"))
+        assertTrue(requests.all { it.header("Cookie") == null && it.header("Sec-Fetch-Mode") == "navigate" })
+    }
+
+    @Test fun canUsePublicMediaOnTheMobilePageWhileKeepingTheRequestedVideoIdentity() = runBlocking {
+        var calls = 0
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            calls++
+            val request = chain.request()
+            if (request.header("User-Agent") == VideoExtractor.USER_AGENT) response(request, 200, "<title>Facebook</title>")
+            else response(request, 200, """<meta property="og:title" content="我的影片">
+                <script type="application/json">[{"id":"999","hd_src":"https://video.xx.fbcdn.net/other.mp4"},
+                {"id":"123","sd_src":"https://video.xx.fbcdn.net/target.mp4"}]</script>""")
+        }.build()
+        val video = VideoExtractor(client).extractVideo("https://www.facebook.com/reel/123/")
+        assertEquals("我的影片", video.title)
+        assertEquals(listOf(VideoFormat("SD", "https://video.xx.fbcdn.net/target.mp4")), video.formats)
+        assertEquals(2, calls)
+    }
+
+    @Test fun anExplicitLoginGateStopsWithoutAnotherPageRequest() = runBlocking {
+        var calls = 0
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            calls++
+            response(chain.request(), 200, "<h1>Log in to see this content</h1>")
+        }.build()
+        val result = VideoExtractor(client).extractVideoUrl("https://www.facebook.com/reel/123/")
+        assertEquals(FacebookPageException.Reason.LOGIN_REQUIRED, (result.exceptionOrNull() as FacebookPageException).reason)
+        assertEquals(1, calls)
+    }
+
+    @Test fun mobileRedirectToAnotherVideoIsRejectedBeforeFetchingIt() = runBlocking {
+        var calls = 0
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            calls++
+            if (calls == 1) response(chain.request(), 200, "<title>Facebook</title>")
+            else response(chain.request(), 302, location = "/reel/999/")
+        }.build()
+        val result = VideoExtractor(client).extractVideoUrl("https://www.facebook.com/reel/123/")
+        assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("不同影片"))
+        assertEquals(2, calls)
+    }
+
+    @Test fun aRedirectWithoutAnIdDoesNotReplaceTheTargetWithRecommendedMedia() = runBlocking {
+        var calls = 0
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            calls++
+            when (calls) {
+                1 -> response(chain.request(), 200, "<title>Facebook</title>")
+                2 -> response(chain.request(), 302, location = "/login/")
+                else -> response(chain.request(), 200, """<script type="application/json">
+                    {"id":"999","sd_src":"https://video.xx.fbcdn.net/other.mp4"}</script>""")
+            }
+        }.build()
+        val result = VideoExtractor(client).extractVideoUrl("https://www.facebook.com/reel/123/")
+        assertEquals(FacebookPageException.Reason.NO_MEDIA, (result.exceptionOrNull() as FacebookPageException).reason)
+        assertEquals(3, calls)
+    }
+
+    @Test fun rateLimitingOnTheAlternatePageStopsWithoutMoreRetries() = runBlocking {
+        var calls = 0
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            calls++
+            if (calls == 1) response(chain.request(), 200, "<title>Facebook</title>")
+            else response(chain.request(), 429, "Too many requests")
+        }.build()
+        val result = VideoExtractor(client).extractVideoUrl("https://www.facebook.com/reel/123/")
+        assertEquals(429, (result.exceptionOrNull() as HttpStatusException).statusCode)
+        assertEquals(2, calls)
     }
 }

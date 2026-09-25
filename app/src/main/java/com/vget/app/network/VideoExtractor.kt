@@ -35,26 +35,47 @@ class VideoExtractor internal constructor(private val client: OkHttpClient) {
     }
 
     suspend fun extractVideo(url: String): FacebookVideoInfo {
-        var current = FacebookUrl.parse(url)
+        val page = fetchPage(FacebookUrl.parse(url), USER_AGENT)
+        try {
+            return FacebookPageParser.parse(page.html, page.url.toString())
+        } catch (error: FacebookPageException) {
+            if (error.reason != FacebookPageException.Reason.NO_MEDIA) throw error
+            val targetId = FacebookUrl.videoId(page.url.toString()) ?: throw error
+            // Desktop Reels can return only an app shell. The same public URL's
+            // mobile page may contain media or an explicit login/18+ explanation.
+            // One alternate request only; no cookies, account access or gate bypass.
+            val mobile = fetchPage(page.url, PlatformPageClient.USER_AGENT, targetId, "en-US,en;q=0.9")
+            // Keep the original target ID even if a login redirect loses it.
+            return FacebookPageParser.parse(mobile.html, page.url.toString())
+        }
+    }
+
+    private suspend fun fetchPage(start: HttpUrl, agent: String, expectedId: String? = null,
+        language: String = "zh-TW,zh;q=0.9,en;q=0.7"): ResolvedPage {
+        var current = start
         repeat(6) {
-            val page = fetch(current)
+            val page = fetch(current, agent, language)
             if (page.redirect != null) {
                 current = FacebookUrl.parse(
                     current.resolve(page.redirect)?.toString()
                         ?: throw IOException("Facebook 連結重新導向失敗")
                 )
+                val redirectedId = FacebookUrl.videoId(current.toString())
+                if (expectedId != null && redirectedId != null && redirectedId != expectedId) {
+                    throw IOException("Facebook 連結導向不同影片，請重新複製原影片的分享連結")
+                }
             } else {
-                return FacebookPageParser.parse(page.html, current.toString())
+                return ResolvedPage(current, page.html)
             }
         }
         throw IOException("Facebook 連結重新導向次數過多，請複製影片原始連結")
     }
 
-    private suspend fun fetch(url: HttpUrl): Page = suspendCancellableCoroutine { continuation ->
+    private suspend fun fetch(url: HttpUrl, agent: String, language: String): Page = suspendCancellableCoroutine { continuation ->
         val call = client.newCall(Request.Builder().url(url)
-            .header("User-Agent", USER_AGENT)
+            .header("User-Agent", agent)
             .header("Accept", "text/html,application/xhtml+xml")
-            .header("Accept-Language", "zh-TW,zh;q=0.9,en;q=0.7")
+            .header("Accept-Language", language)
             // Facebook share/reel pages return HTTP 400 for this UA without
             // navigation metadata, even when the same public URL works in a browser.
             .header("Sec-Fetch-Dest", "document")
@@ -93,6 +114,7 @@ class VideoExtractor internal constructor(private val client: OkHttpClient) {
     }
 
     private data class Page(val html: String = "", val redirect: String? = null)
+    private data class ResolvedPage(val url: HttpUrl, val html: String)
 
     // Shared result shape retained for the Threads and Xiaohongshu page parsers.
     data class VideoInfo(

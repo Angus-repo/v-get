@@ -15,8 +15,9 @@ import java.io.OutputStream
 
 /** Only publish complete files; failed or cancelled copies leave no visible partial video. */
 internal class VideoStorage(private val context: Context) {
-    suspend fun save(file: File, name: String): SavedVideo {
+    suspend fun save(file: File, title: String): SavedVideo {
         require(file.isFile && file.length() > 0) { "檔案下載未完成，請重試" }
+        val name = DownloadFileNames.fromTitle(title, file.extension)
         val mime = mediaMimeType(file.extension)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val resolver = context.contentResolver
@@ -28,27 +29,30 @@ internal class VideoStorage(private val context: Context) {
             }
             val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
                 ?: throw IOException("無法建立下載檔案")
-            try {
+            val savedName = try {
                 val output = resolver.openOutputStream(uri) ?: throw IOException("無法寫入下載資料夾")
                 output.use { copy(file, it) }
                 currentCoroutineContext().ensureActive()
                 val published = resolver.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
                 if (published != 1) throw IOException("無法完成檔案儲存")
+                // MediaStore allocates a unique path and may append a copy number.
+                resolver.query(uri, arrayOf(MediaStore.Downloads.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                }?.takeIf { it.isNotBlank() } ?: throw IOException("無法讀取下載檔名")
             } catch (e: Exception) {
                 resolver.delete(uri, null, null)
                 throw e
             }
-            return SavedVideo("${Environment.DIRECTORY_DOWNLOADS}/V-Get/$name", uri.toString(), mime)
+            return SavedVideo("${Environment.DIRECTORY_DOWNLOADS}/V-Get/$savedName", uri.toString(), mime)
         }
         @Suppress("DEPRECATION")
         val directory = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "V-Get")
         if (!directory.isDirectory && !directory.mkdirs()) throw IOException("無法建立下載資料夾")
-        val target = File(directory, name)
-        val partial = File(directory, "$name.part")
-        try {
+        val partial = File.createTempFile(".vget-", ".part", directory)
+        val target = try {
             partial.outputStream().use { copy(file, it) }
             currentCoroutineContext().ensureActive()
-            if (!partial.renameTo(target)) throw IOException("無法完成檔案儲存")
+            LegacyMediaPublisher.publish(partial, title, file.extension)
         } finally {
             partial.delete()
         }

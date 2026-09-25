@@ -53,6 +53,7 @@
     <string name="status_analyzing">正在分析影片...</string>
     <string name="error_network">網路連線錯誤</string>
     <string name="error_parse">無法解析影片網址</string>
+    <string name="facebook_login_required">此影片需要 Facebook 登入</string>
     <string name="error_details">錯誤資訊</string>
     <string name="copy_error">複製錯誤資訊</string>
     <string name="error_copied">已複製錯誤資訊</string>
