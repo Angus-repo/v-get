@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit
 internal class PlatformPageClient(client: OkHttpClient = OkHttpClient()) {
     private val client = client.newBuilder().followRedirects(false).followSslRedirects(false)
         .connectTimeout(20, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
+    private val requests = SecurePageRequests(this.client)
 
     suspend fun extractThreads(source: VideoSource): VideoExtractor.VideoInfo {
         var pageSource = source
@@ -64,8 +65,8 @@ internal class PlatformPageClient(client: OkHttpClient = OkHttpClient()) {
                     ?.any { it in setOf("login", "captcha", "website-login") } == true) {
                 throw IOException("小紅書要求登入或驗證，目前僅支援免登入的公開影片。")
             }
-            val response = runInterruptible {
-                client.newCall(Request.Builder().url(url).header("User-Agent", agent)
+            val response = requests.execute(
+                Request.Builder().url(url).header("User-Agent", agent)
                     .header("Referer", source.platform.referer)
                     // Without navigation headers Threads may return only the app
                     // shell for an Android share link, with no post or media data.
@@ -74,8 +75,7 @@ internal class PlatformPageClient(client: OkHttpClient = OkHttpClient()) {
                     .header("Sec-Fetch-Mode", "navigate")
                     .header("Sec-Fetch-Site", "none")
                     .header("Upgrade-Insecure-Requests", "1")
-                    .build()).execute()
-            }
+                    .build(), source.platform)
             response.use {
                 if (it.isRedirect) {
                     var next = it.header("Location")?.let(it.request.url::resolve)

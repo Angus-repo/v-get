@@ -83,6 +83,15 @@
                     android:max="100" android:progress="0" />
                 <TextView android:id="@+id/progressText" android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:layout_marginTop="8dp" android:textSize="16sp" android:textColor="@color/text_primary" tools:text="100%" />
+                <LinearLayout android:id="@+id/errorPanel" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" android:orientation="vertical" android:visibility="gone">
+                    <TextView android:id="@+id/errorDetails" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:textSize="16sp" android:lineSpacingExtra="4dp" android:textColor="@color/text_primary"
+                        android:textIsSelectable="true" android:accessibilityLiveRegion="polite" />
+                    <com.google.android.material.button.MaterialButton android:id="@+id/copyErrorButton" style="@style/Widget.VGet.Button.Secondary"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"
+                        android:text="@string/copy_error" />
+                </LinearLayout>
                 <com.google.android.material.button.MaterialButton android:id="@+id/cancelButton" style="@style/Widget.VGet.Button.Secondary"
                     android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/cancel" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/playDownloadedButton" style="@style/Widget.VGet.Button.Secondary"

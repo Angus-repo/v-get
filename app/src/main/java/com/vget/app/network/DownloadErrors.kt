@@ -32,6 +32,7 @@ internal object DownloadErrors {
         val lower = safeText(error).lowercase(Locale.ROOT)
         val code = status(error)
         return when {
+            error is PageConnectionException -> error.userMessage()
             code == 429 -> "${platform.displayName} 暫時限制請求次數（HTTP 429），請稍後再試。"
             code == 401 -> "${platform.displayName} 要求登入（HTTP 401），目前僅支援免登入的公開影片。"
             code == 403 -> "${platform.displayName} 拒絕這次請求（HTTP 403），請重新分析連結或稍後再試。"

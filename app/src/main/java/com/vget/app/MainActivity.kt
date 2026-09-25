@@ -1,9 +1,11 @@
 package com.vget.app
 
 import android.content.ClipboardManager
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Build
 import android.view.View
 import android.widget.AdapterView
 import android.widget.LinearLayout
@@ -62,6 +64,11 @@ class MainActivity : AppCompatActivity() {
         }
         binding.cancelButton.setOnClickListener { activeJob?.cancel() }
         binding.updateEngineButton.setOnClickListener { updateEngine() }
+        binding.copyErrorButton.setOnClickListener {
+            (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(
+                ClipData.newPlainText(getString(R.string.error_details), binding.errorDetails.text))
+            Toast.makeText(this, R.string.error_copied, Toast.LENGTH_SHORT).show()
+        }
         binding.urlEditText.doAfterTextChanged { invalidateSelection() }
         binding.qualitySpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) { updateSelectionControls() }
@@ -244,6 +251,8 @@ class MainActivity : AppCompatActivity() {
         binding.progressCard.visibility = View.VISIBLE
         binding.progressBar.isIndeterminate = busy
         if (busy) {
+            binding.errorPanel.visibility = View.GONE
+            binding.progressBar.visibility = View.VISIBLE
             binding.progressBar.progress = 0
             binding.progressText.text = ""
         }
@@ -267,6 +276,11 @@ class MainActivity : AppCompatActivity() {
     private fun formatFileSize(bytes: Long): String = formatBytes(bytes)
 
     private fun showError(message: String) {
+        val version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
+        binding.errorDetails.text = "$message\n\nV-Get $version · Android ${Build.VERSION.RELEASE}（API ${Build.VERSION.SDK_INT}）"
+        binding.errorPanel.visibility = View.VISIBLE
+        binding.progressCard.visibility = View.VISIBLE
+        binding.progressBar.visibility = View.GONE
         Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).setTextMaxLines(5)
             .setBackgroundTint(getColor(R.color.error)).setTextColor(getColor(R.color.on_error)).show()
     }

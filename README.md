@@ -2,6 +2,12 @@
 
 V-Get downloads public Facebook, YouTube, Instagram, Threads and Xiaohongshu/RedNote videos on Android. Paste a video link or the complete share text, or share it directly to V-Get from another app.
 
+## New in 1.3.3
+
+- Retry Xiaohongshu share-page DNS/TLS/connect failures once through Cloudflare DNS over HTTPS. Only the hostname is queried; the original HTTPS URL, share token, hostname verification and system certificate validation are preserved. Other platforms and HTTP errors do not trigger this retry.
+- Keep errors on screen with a copy button, the failing hostname, separate connection/TLS codes for both attempts, and app/Android versions. Raw URLs, tokens and engine logs are excluded.
+- Retain the signing identity; versionCode is 8. A successful test outside the user's network does not establish that the phone's TLS problem is resolved. The new route addresses DNS misrouting; it cannot fix every certificate or network-policy failure.
+
 ## New in 1.3.2
 
 - Consistent light and dark palettes for surfaces, labels, quality selection, controls, and notifications; no fixed dark text on a dark card.
@@ -23,7 +29,7 @@ V-Get downloads public Facebook, YouTube, Instagram, Threads and Xiaohongshu/Red
 - Download the selected audio as a real 192 kbps MP3. Separate YouTube audio is selected directly; other sources may require downloading the video before conversion. Silent sources cannot produce MP3 audio.
 - Both videos and MP3 files use `Downloads/V-Get/` and support playback after download.
 
-Login or verification redirects stop with an actionable message; this version does not add login or cookie import. Version 1.3.2 (versionCode 7) retains the existing 1.2.1 signing key.
+Login or verification redirects stop with an actionable message; this version does not add login or cookie import. Version 1.3.3 (versionCode 8) retains the existing 1.2.1 signing key.
 
 > Looking for the Traditional Chinese guide? Check out [README_zh_TW.md](README_zh_TW.md).
 
