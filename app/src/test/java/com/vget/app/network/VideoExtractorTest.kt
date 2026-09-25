@@ -75,8 +75,9 @@ class VideoExtractorTest {
         assertEquals(listOf("hd", "sd"), info.qualities.map { it.id })
         assertEquals(listOf(signedHd, sd), info.qualities.map { it.directUrl })
         info.qualities.forEach { quality ->
-            assertEquals(quality.directUrl, quality.preview!!.video.url)
-            assertEquals("https://www.facebook.com/", quality.preview.video.headers["Referer"])
+            val preview = requireNotNull(quality.preview)
+            assertEquals(quality.directUrl, preview.video.url)
+            assertEquals("https://www.facebook.com/", preview.video.headers["Referer"])
             assertNull(quality.height)
             assertNull(quality.fileSize)
             assertFalse(quality.silent)
