@@ -17,6 +17,7 @@ import com.google.android.material.snackbar.Snackbar
 import com.vget.app.databinding.ActivityMainBinding
 import com.vget.app.network.DownloadErrors
 import com.vget.app.network.DownloadFormat
+import com.vget.app.network.FacebookPageException
 import com.vget.app.network.formatBytes
 import com.vget.app.network.MediaStream
 import com.vget.app.network.SavedVideo
@@ -140,7 +141,8 @@ class MainActivity : AppCompatActivity() {
                 binding.statusText.setText(R.string.download_cancelled)
                 throw e
             } catch (e: Exception) {
-                binding.statusText.setText(R.string.error_parse)
+                binding.statusText.setText(if ((e as? FacebookPageException)?.requiresLogin == true)
+                    R.string.facebook_login_required else R.string.error_parse)
                 showError(getString(R.string.analysis_error_detail, DownloadErrors.message(e, source.platform)))
             } finally {
                 setBusy(false)
