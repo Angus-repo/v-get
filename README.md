@@ -2,6 +2,13 @@
 
 V-Get downloads public Facebook, YouTube, Instagram, Threads and Xiaohongshu/RedNote videos on Android. Paste a video link or the complete share text, or share it directly to V-Get from another app.
 
+## Fixed in 1.3.6
+
+- Preserve Facebook's validated redirect hostname, including `m.facebook.com`. Version 1.3.5 mistakenly reused input normalization for server redirects, rewriting the mobile hostname to `www.facebook.com` and causing a loop on affected connections.
+- Detect repeated destinations before making another request; keep the six-request bound for redirects with changing parameters. Error details contain the request phase, validated hostnames and status codes, without paths, share tokens or cookies.
+- Keep the first resolved video ID through the whole redirect chain. Existing allowed-host, port, credential and HTTPS checks still apply.
+- Retain title-based filenames, 18+ / login notices and the original signing identity. Version is 1.3.6 (versionCode 11); login-required videos remain unsupported.
+
 ## New in 1.3.5
 
 - When a Facebook desktop page contains no media, inspect the same resolved video's mobile page once. Preserve the requested video ID across redirects and reject a redirect to a different video.
@@ -53,7 +60,7 @@ For a known restricted sample, add `-PvgetLiveExpectedAccess=AGE_RESTRICTED` or 
 - Download the selected audio as a real 192 kbps MP3. Separate YouTube audio is selected directly; other sources may require downloading the video before conversion. Silent sources cannot produce MP3 audio.
 - Both videos and MP3 files use `Downloads/V-Get/` and support playback after download.
 
-Login or verification redirects stop with an actionable message; this version does not add login or cookie import. Version 1.3.5 (versionCode 10) retains the existing 1.2.1 signing key.
+Login or verification redirects stop with an actionable message; this version does not add login or cookie import. Version 1.3.6 (versionCode 11) retains the existing 1.2.1 signing key.
 
 > Looking for the Traditional Chinese guide? Check out [README_zh_TW.md](README_zh_TW.md).
 
