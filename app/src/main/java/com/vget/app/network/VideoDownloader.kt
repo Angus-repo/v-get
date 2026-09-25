@@ -22,7 +22,7 @@ class VideoDownloader(context: Context) {
                 onRetry = { emit(DownloadProgress.Processing("正在嘗試同畫質的備援來源...")) },
                 onProgress = { percent, downloaded, total -> emit(DownloadProgress.Progress(percent, downloaded, total)) })
             emit(DownloadProgress.Processing("正在儲存影片..."))
-            val name = "${source.platform.name.lowercase()}_${UUID.randomUUID()}.mp4"
+            val name = fileName(source.platform.name.lowercase())
             emit(DownloadProgress.Completed(VideoStorage(context).save(temporary, name)))
         } catch (e: CancellationException) {
             throw e
@@ -39,5 +39,12 @@ class VideoDownloader(context: Context) {
         data class Progress(val percentage: Int, val downloadedBytes: Long = 0, val totalBytes: Long = -1) : DownloadProgress()
         data class Completed(val video: SavedVideo) : DownloadProgress()
         data class Error(val message: String) : DownloadProgress()
+    }
+
+    companion object {
+        internal fun fileName(title: String): String {
+            val safe = title.replace(Regex("[^\\p{L}\\p{N} _-]"), "_").trim().take(60).ifBlank { "V-Get" }
+            return "${safe}_${UUID.randomUUID().toString().take(8)}.mp4"
+        }
     }
 }

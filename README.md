@@ -2,11 +2,19 @@
 
 V-Get downloads public Facebook, YouTube, Instagram, Threads and Xiaohongshu/RedNote videos on Android. Paste a video link or the complete share text, or share it directly to V-Get from another app.
 
+## PR #2 integration with main
+
+The working 1.3.3 multi-platform interface and `VideoDownloadService` / MediaStore pipeline are retained, including Xiaohongshu connection retries, video quality/capacity, preview and MP3. They supersede main's Facebook-only activity, ViewModel and DownloadManager pipeline; foreground download behavior remains as documented below. The signing configuration and version stay unchanged.
+
+Facebook now uses main's cancellable, size-limited page requests, navigation headers, validated redirects and target-video parser. Its HD/SD formats feed the existing quality selector and file-size lookup. Recommendations are not substituted for the requested video. Comment-thread URLs are rejected; copy the comment video's own link instead. Main's launcher assets, backup exclusions and regression tests are retained.
+
+The optional Facebook network test is available with `./gradlew :app:testDebugUnitTest -PvgetLiveUrl="https://www.facebook.com/share/v/YOUR_LINK/"`. It checks extraction and MP4 headers; normal unit tests skip it and do not depend on Facebook availability.
+
 ## New in 1.3.3
 
 - Retry Xiaohongshu share-page DNS/TLS/connect failures once through Cloudflare DNS over HTTPS. Only the hostname is queried; the original HTTPS URL, share token, hostname verification and system certificate validation are preserved. Other platforms and HTTP errors do not trigger this retry.
 - Keep errors on screen with a copy button, the failing hostname, separate connection/TLS codes for both attempts, and app/Android versions. Raw URLs, tokens and engine logs are excluded.
-- Retain the signing identity; versionCode is 8. A successful test outside the user's network does not establish that the phone's TLS problem is resolved. The new route addresses DNS misrouting; it cannot fix every certificate or network-policy failure.
+- Retain the signing identity; versionCode is 8. The user confirmed that 1.3.3 works on their phone on 2026-09-25. The exact earlier TLS cause remains unconfirmed; the retry cannot fix every certificate or network-policy failure.
 
 ## New in 1.3.2
 
@@ -81,7 +89,7 @@ YouTube/Instagram choices show the reported resolution, frame rate and container
 - `https://www.facebook.com/username/videos/xxxxx`
 - `https://fb.watch/xxxxx`
 - `https://m.facebook.com/...`
-- Video links embedded in Facebook comments
+- The video's own link when shared in a Facebook comment; comment-thread URLs are not supported
 
 | Platform | Supported formats |
 | --- | --- |

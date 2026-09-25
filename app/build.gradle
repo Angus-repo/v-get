@@ -40,6 +40,11 @@ android {
     buildFeatures {
         viewBinding true
     }
+    testOptions {
+        unitTests.all {
+            systemProperty 'vget.liveUrl', project.findProperty('vgetLiveUrl') ?: ''
+        }
+    }
     packaging {
         jniLibs {
             // Python, QuickJS and FFmpeg are executed from nativeLibraryDir.

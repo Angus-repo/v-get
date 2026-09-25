@@ -90,6 +90,19 @@ class VideoSourceTest {
         assertTrue(VideoSource.parse("https://www.facebook.com/測試/videos/123").url.endsWith("/videos/123"))
     }
 
+    @Test fun facebookValidationIsSharedWithTheMultiPlatformInput() {
+        listOf("m", "mobile", "mbasic").forEach { host ->
+            assertEquals("https://www.facebook.com/watch/?v=123&token=A%2FB+C",
+                VideoSource.parse("看看 http://$host.facebook.com/watch/?v=123&token=A%2FB+C。分享影片").url)
+        }
+        listOf("https://www.facebook.com/watch/?v=123&comment_id=456",
+            "https://www.facebook.com/reel/123/?reply_comment_id=456",
+            "https://unrecognized.facebook.com/reel/123/",
+            "https://www.facebook.com:80/reel/123/").forEach { url ->
+            assertThrows(url, IllegalArgumentException::class.java) { VideoSource.parse(url) }
+        }
+    }
+
     @Test fun rejectsUnsupportedAndDeceptiveUrlsBeforeNetworkAccess() {
         listOf(
             "", "not a URL", "file:///etc/passwd", "ftp://youtube.com/watch?v=BaW_jenozKc",

@@ -82,10 +82,7 @@ data class VideoSource(val url: String, val platform: VideoPlatform, val postId:
                 }
                 VideoPlatform.FACEBOOK -> {
                     require(segments.isNotEmpty()) { "請提供 Facebook 影片連結" }
-                    if (parsed.host == "m.facebook.com" || parsed.host == "mobile.facebook.com") {
-                        builder.host("www.facebook.com")
-                    }
-                    VideoSource(builder.build().toString(), platform)
+                    VideoSource(FacebookUrl.parse(parsed.toString()).toString(), platform)
                 }
             }
         }

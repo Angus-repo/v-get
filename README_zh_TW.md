@@ -2,11 +2,19 @@
 
 下載 Facebook、YouTube、Instagram、Threads 與小紅書公開影片的 Android 應用程式。可貼上影片連結或整段分享文字，也可從其他 App 直接分享至 V-Get。
 
+## PR #2 與 main 整合
+
+保留已可用的 1.3.3 多平台介面及 `VideoDownloadService`／MediaStore 下載流程，包含小紅書連線重試、畫質與容量、試播及 MP3。這套流程取代 main 的 Facebook 專用 Activity、ViewModel 與 DownloadManager；仍維持下方所述的前景下載限制。簽章設定與版本保持不變。
+
+Facebook 接入 main 可取消、限制頁面大小的連線流程，保留導覽標頭、重新導向驗證及指定影片解析。HD／SD 接回現有畫質選單與容量查詢，不以推薦影片替代指定影片。留言串網址會被拒絕，請複製留言影片本身的連結。保留 main 的啟動圖示、備份排除設定與回歸測試。
+
+可執行 `./gradlew :app:testDebugUnitTest -PvgetLiveUrl="https://www.facebook.com/share/v/你的連結/"` 選擇性驗證 Facebook 實際解析及 MP4 檔頭；一般單元測試會跳過此項，不依賴 Facebook 即時可用性。
+
 ## 1.3.3 小紅書連線改善
 
 - 小紅書分享頁遇到 DNS／TLS／連線錯誤時，透過 Cloudflare 加密 DNS 重新解析並重試一次。DNS 僅查詢主機名稱；保留原 HTTPS 網址、分享參數、主機名稱驗證與系統憑證驗證。其他平台及 HTTP 錯誤不觸發此重試。
 - 錯誤資訊保留在畫面上，可按「複製錯誤資訊」；內容包含失敗主機、一般連線與重試各自的 TLS／連線錯誤碼，以及 App／Android 版本，不顯示原始網址、權杖或引擎日誌。
-- 沿用原金鑰，versionCode 升至 8。此版本處理 DNS 導向異常的情境；測試環境成功不代表使用者手機已修復，所有憑證或網路限制也並非都能透過重新解析解決。
+- 沿用原金鑰，versionCode 升至 8。使用者已於 2026-09-25 確認 1.3.3 在手機可用；先前 TLS 的確切原因仍未確認，並非所有憑證或網路限制都能透過重新解析解決。
 
 ## 1.3.2 介面改善
 
@@ -80,7 +88,7 @@ YouTube／Instagram 依來源資料顯示解析度、幀率及檔案格式；相
 - `https://www.facebook.com/username/videos/xxxxx`
 - `https://fb.watch/xxxxx`
 - `https://m.facebook.com/...`
-- Facebook 留言中的影片連結
+- Facebook 留言影片本身的連結；不支援留言串網址
 
 | 平台 | 支援格式 |
 | --- | --- |
