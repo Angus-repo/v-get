@@ -53,23 +53,39 @@ class VideoExtractor internal constructor(private val client: OkHttpClient) {
     private suspend fun fetchPage(start: HttpUrl, agent: String, expectedId: String? = null,
         language: String = "zh-TW,zh;q=0.9,en;q=0.7"): ResolvedPage {
         var current = start
+        var targetId = expectedId ?: FacebookUrl.videoId(start.toString())
+        val visited = mutableSetOf<HttpUrl>()
+        val redirects = mutableListOf<String>()
+        val stage = if (agent == USER_AGENT) "分享／影片頁面" else "行動版頁面"
         repeat(6) {
+            if (!visited.add(current)) {
+                throw redirectFailure("重新導向循環", "FB_REDIRECT_LOOP", stage, redirects, current)
+            }
             val page = fetch(current, agent, language)
             if (page.redirect != null) {
-                current = FacebookUrl.parse(
+                redirects += "${current.host}（${page.statusCode}）"
+                current = FacebookUrl.parseRedirect(
                     current.resolve(page.redirect)?.toString()
                         ?: throw IOException("Facebook 連結重新導向失敗")
                 )
                 val redirectedId = FacebookUrl.videoId(current.toString())
-                if (expectedId != null && redirectedId != null && redirectedId != expectedId) {
+                if (targetId != null && redirectedId != null && redirectedId != targetId) {
                     throw IOException("Facebook 連結導向不同影片，請重新複製原影片的分享連結")
                 }
+                if (targetId == null) targetId = redirectedId
             } else {
                 return ResolvedPage(current, page.html)
             }
         }
-        throw IOException("Facebook 連結重新導向次數過多，請複製影片原始連結")
+        throw redirectFailure("重新導向次數過多", "FB_REDIRECT_LIMIT", stage, redirects, current)
     }
+
+    private fun redirectFailure(reason: String, code: String, stage: String,
+        redirects: List<String>, current: HttpUrl) = IOException(
+        "Facebook $reason，請稍後再試。\n$code · $stage\n" +
+            // Only validated public hostnames/statuses, never paths, tokens or cookies.
+            (redirects + current.host).joinToString(" → ")
+    )
 
     private suspend fun fetch(url: HttpUrl, agent: String, language: String): Page = suspendCancellableCoroutine { continuation ->
         val call = client.newCall(Request.Builder().url(url)
@@ -94,7 +110,7 @@ class VideoExtractor internal constructor(private val client: OkHttpClient) {
                     val page = response.use {
                         if (it.code in listOf(301, 302, 303, 307, 308)) {
                             Page(redirect = it.header("Location")
-                                ?: throw IOException("Facebook 連結重新導向失敗"))
+                                ?: throw IOException("Facebook 連結重新導向失敗"), statusCode = it.code)
                         } else {
                             if (!it.isSuccessful) throw HttpStatusException(it.code, "Facebook 暫時無法提供影片")
                             val body = it.body ?: throw IOException("無法取得影片頁面")
@@ -113,7 +129,7 @@ class VideoExtractor internal constructor(private val client: OkHttpClient) {
         })
     }
 
-    private data class Page(val html: String = "", val redirect: String? = null)
+    private data class Page(val html: String = "", val redirect: String? = null, val statusCode: Int = 200)
     private data class ResolvedPage(val url: HttpUrl, val html: String)
 
     // Shared result shape retained for the Threads and Xiaohongshu page parsers.

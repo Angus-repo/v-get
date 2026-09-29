@@ -206,4 +206,114 @@ class VideoExtractorTest {
         assertEquals(429, (result.exceptionOrNull() as HttpStatusException).statusCode)
         assertEquals(2, calls)
     }
+
+    @Test fun followsTheMobileHostChosenByFacebookInsteadOfRewritingItToDesktop() = runBlocking {
+        val requests = mutableListOf<Request>()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            requests += request
+            when {
+                request.url.encodedPath.startsWith("/share/") -> response(request, 302,
+                    location = "https://m.facebook.com/reel/123/?token=A%2FB+C")
+                request.url.host == "www.facebook.com" -> response(request, 302,
+                    location = "https://m.facebook.com/reel/123/?token=A%2FB+C")
+                else -> response(request, 200, """<script type="application/json">
+                    {"id":"123","sd_src":"https://video.xx.fbcdn.net/target.mp4"}</script>""")
+            }
+        }.build()
+        val result = VideoExtractor(client).extractVideo("https://www.facebook.com/share/v/example-token/")
+        assertEquals(listOf("www.facebook.com", "m.facebook.com"), requests.map { it.url.host })
+        assertEquals("https://m.facebook.com/reel/123/?token=A%2FB+C", result.sourceUrl)
+        assertEquals("https://video.xx.fbcdn.net/target.mp4", result.formats.single().url)
+    }
+
+    @Test fun alternateMobileRedirectReachesTheAgeNoticeWithoutADesktopLoop() = runBlocking {
+        val requests = mutableListOf<Request>()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            requests += request
+            when {
+                request.header("User-Agent") == VideoExtractor.USER_AGENT -> response(request, 200, "<title>Facebook</title>")
+                request.url.host == "www.facebook.com" -> response(request, 302,
+                    location = "https://m.facebook.com/reel/123/")
+                else -> response(request, 200, "<h1>Log in to view this 18+&#10;content</h1>")
+            }
+        }.build()
+        val result = VideoExtractor(client).extractVideoUrl("https://www.facebook.com/reel/123/")
+        val error = result.exceptionOrNull()
+        assertTrue("Expected the age notice, got ${error?.message}", error is FacebookPageException)
+        assertEquals(FacebookPageException.Reason.AGE_RESTRICTED, (error as FacebookPageException).reason)
+        assertEquals(listOf("www.facebook.com", "www.facebook.com", "m.facebook.com"), requests.map { it.url.host })
+    }
+
+    @Test fun relativeRedirectsContinueOnTheServerSelectedMobileHost() = runBlocking {
+        val requests = mutableListOf<Request>()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            requests += request
+            when (requests.size) {
+                1 -> response(request, 302, location = "https://m.facebook.com/reel/123/")
+                2 -> response(request, 307, location = "/watch/?v=123&token=A%2FB+C")
+                else -> response(request, 200, """<script type="application/json">
+                    {"id":"123","sd_src":"https://video.xx.fbcdn.net/target.mp4"}</script>""")
+            }
+        }.build()
+        val result = VideoExtractor(client).extractVideo("https://www.facebook.com/share/v/example-token/")
+        assertEquals(listOf("www.facebook.com", "m.facebook.com", "m.facebook.com"), requests.map { it.url.host })
+        assertEquals("https://m.facebook.com/watch/?v=123&token=A%2FB+C", result.sourceUrl)
+    }
+
+    @Test fun aRealRedirectCycleStopsBeforeRepeatingRequestsAndOmitsSensitiveParameters() = runBlocking {
+        val requests = mutableListOf<Request>()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            requests += request
+            val nextHost = if (request.url.host == "www.facebook.com") "m.facebook.com" else "www.facebook.com"
+            response(request, 302, location = "https://$nextHost/reel/123/?token=private-token")
+        }.build()
+        val result = VideoExtractor(client).extractVideoUrl("https://www.facebook.com/reel/123/?token=private-token")
+        val message = DownloadErrors.message(result.exceptionOrNull() as Exception, VideoPlatform.FACEBOOK)
+        assertEquals(2, requests.size)
+        assertTrue(message.contains("FB_REDIRECT_LOOP"))
+        assertTrue(message.contains("分享／影片頁面"))
+        assertTrue(message.contains("m.facebook.com（302）"))
+        assertFalse(message.contains("token"))
+        assertFalse(message.contains("/reel/123/"))
+    }
+
+    @Test fun changingRedirectParametersStillHitsTheBoundedRequestLimit() = runBlocking {
+        var calls = 0
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            calls++
+            response(chain.request(), 302, location = "/reel/123/?token=private-$calls")
+        }.build()
+        val result = VideoExtractor(client).extractVideoUrl("https://www.facebook.com/reel/123/")
+        val message = DownloadErrors.message(result.exceptionOrNull() as Exception, VideoPlatform.FACEBOOK)
+        assertEquals(6, calls)
+        assertTrue(message.contains("FB_REDIRECT_LIMIT"))
+        assertFalse(message.contains("private"))
+    }
+
+    @Test fun initialPageRedirectsCannotChangeAnAlreadyKnownVideoId() = runBlocking {
+        var calls = 0
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            calls++
+            response(chain.request(), 302, location = "https://m.facebook.com/reel/999/")
+        }.build()
+        val result = VideoExtractor(client).extractVideoUrl("https://www.facebook.com/reel/123/")
+        assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("不同影片"))
+        assertEquals(1, calls)
+    }
+
+    @Test fun aShareLinkKeepsTheFirstResolvedVideoIdThroughLaterRedirects() = runBlocking {
+        var calls = 0
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            calls++
+            response(chain.request(), 302, location = if (calls == 1)
+                "https://m.facebook.com/reel/123/" else "https://www.facebook.com/reel/999/")
+        }.build()
+        val result = VideoExtractor(client).extractVideoUrl("https://www.facebook.com/share/v/example-token/")
+        assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("不同影片"))
+        assertEquals(2, calls)
+    }
 }

@@ -8,6 +8,35 @@ import org.jsoup.Jsoup
 
 /** Select the requested post, never a video from replies or recommendations. */
 internal object ThreadsPageParser {
+    /** Check the active error page, not unused modules or text in another post. */
+    fun isAudienceRestricted(html: String): Boolean {
+        fun isRestrictedRoute(route: JsonObject): Boolean {
+            val root = route.objectValue("rootView")
+            return route.text("canonicalRouteName") ==
+                "comet.barcelonawebloggedout.BarcelonaGeoBlockRoute" ||
+                root?.objectValue("resource")?.text("__dr") == "BarcelonaGeoBlockedErrorRoot.react" ||
+                root?.objectValue("entryPoint")?.text("__dr") == "BarcelonaGeoBlockedErrorRoot.entrypoint"
+        }
+
+        fun visit(value: JsonElement, depth: Int = 0): Boolean {
+            if (depth > 100) return false
+            return when {
+                value.isJsonArray -> value.asJsonArray.any { visit(it, depth + 1) }
+                value.isJsonObject -> {
+                    val obj = value.asJsonObject
+                    val activeRoute = obj.objectValue("initialRouteInfo")?.objectValue("route")
+                    (activeRoute != null && isRestrictedRoute(activeRoute)) ||
+                        obj.entrySet().any { visit(it.value, depth + 1) }
+                }
+                else -> false
+            }
+        }
+
+        return Jsoup.parse(html).select("script[type=application/json]").any { script ->
+            runCatching { JsonParser.parseString(script.data()) }.getOrNull()?.let { visit(it) } == true
+        }
+    }
+
     fun parse(html: String, source: VideoSource): VideoExtractor.VideoInfo? {
         val document = Jsoup.parse(html)
         val canonical = document.selectFirst("meta[property=og:url]")?.attr("content")

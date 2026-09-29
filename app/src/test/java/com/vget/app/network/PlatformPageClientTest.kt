@@ -20,6 +20,16 @@ class PlatformPageClientTest {
             "code":"INSTAGRAM","video_versions":[{"url":"$mediaUrl"}]
         }}
     }</script>"""
+    private val restrictedPage = """<script type="application/json" data-sjs>{
+        "require":[["CometPlatformRootClient","initialize",[],[{
+          "initialRouteInfo":{"route":{"rootView":{
+            "resource":{"__dr":"BarcelonaGeoBlockedErrorRoot.react"},
+            "props":{"title":"This content isn't available to everyone",
+              "description":"It can't be seen by certain audiences.","geoBlockRuleType":null}
+          }}}
+        }]]]
+    }</script>"""
+    private val restrictionMessage = "Threads 限制部分使用者觀看這篇貼文（This content isn't available to everyone）。目前無法取得影片；限制原因可能與登入狀態、年齡或地區有關，請在 Threads 中確認。"
 
     private fun client(handle: (Request) -> Response) = PlatformPageClient(
         OkHttpClient.Builder().addInterceptor { handle(it.request()) }.build()
@@ -97,6 +107,68 @@ class PlatformPageClientTest {
         }.extractThreads(share)
         assertEquals(mediaUrl, result.videoUrl)
         assertEquals(listOf(share.url, postUrl, postUrl), requests.map { it.url.toString() })
+    }
+
+    @Test fun explicitAudienceRestrictionStopsAfterShareRedirectWithoutPreviewRetry() = runBlocking {
+        val requests = mutableListOf<Request>()
+        try {
+            client { request ->
+                requests.add(request)
+                if (request.url.encodedPath.startsWith("/share/")) response(request, redirect = postUrl)
+                else response(request, restrictedPage)
+            }.extractThreads(share)
+            fail("Audience restriction must be reported")
+        } catch (e: IOException) {
+            assertEquals(restrictionMessage, e.message)
+            assertEquals(restrictionMessage, DownloadErrors.message(e, VideoPlatform.THREADS))
+        }
+        assertEquals(listOf(share.url, postUrl), requests.map { it.url.toString() })
+        assertTrue(requests.all { it.header("User-Agent") == PlatformPageClient.USER_AGENT })
+    }
+
+    @Test fun restrictedPageCannotDownloadUnrelatedMetadataVideo() = runBlocking {
+        var calls = 0
+        val html = restrictedPage + """
+          <meta property="og:url" content="$postUrl">
+          <meta property="og:video" content="https://video.fbcdn.net/unrelated.mp4">
+          <script type="application/json">{"code":"OTHER",
+            "video_url":"https://video.fbcdn.net/unrelated.mp4"}</script>
+        """
+        try {
+            client { request -> calls++; response(request, html) }
+                .extractThreads(VideoSource.parse(postUrl))
+            fail("Restriction must be checked before parsing media")
+        } catch (e: IOException) {
+            assertEquals(restrictionMessage, e.message)
+        }
+        assertEquals(1, calls)
+    }
+
+    @Test fun restrictionFoundOnPreviewResponseAlsoGetsSpecificMessage() = runBlocking {
+        var calls = 0
+        try {
+            client { request ->
+                calls++
+                response(request, if (request.header("User-Agent") == PlatformPageClient.USER_AGENT)
+                    "<html></html>" else restrictedPage)
+            }.extractThreads(VideoSource.parse(postUrl))
+            fail("Preview restriction must be reported")
+        } catch (e: IOException) {
+            assertEquals(restrictionMessage, e.message)
+        }
+        assertEquals(2, calls)
+    }
+
+    @Test fun ordinaryMissingMediaKeepsGenericMessageAfterBothPageAttempts() = runBlocking {
+        var calls = 0
+        try {
+            client { request -> calls++; response(request, "<html><body>No video</body></html>") }
+                .extractThreads(VideoSource.parse(postUrl))
+            fail("Missing media must be reported")
+        } catch (e: IOException) {
+            assertEquals("找不到這篇 Threads 貼文的影片。請確認貼文公開且包含影片；需要登入的內容目前不支援。", e.message)
+        }
+        assertEquals(2, calls)
     }
 
     @Test fun redirectNeverOverridesAnExplicitPostId() = runBlocking {

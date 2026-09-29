@@ -20,6 +20,10 @@ internal class PlatformPageClient(client: OkHttpClient = OkHttpClient()) {
         for (agent in listOf(USER_AGENT, PREVIEW_USER_AGENT)) {
             currentCoroutineContext().ensureActive()
             val (resolved, html) = fetch(pageSource, agent)
+            if (ThreadsPageParser.isAudienceRestricted(html)) {
+                throw IOException("Threads 限制部分使用者觀看這篇貼文（This content isn't available to everyone）。" +
+                    "目前無法取得影片；限制原因可能與登入狀態、年齡或地區有關，請在 Threads 中確認。")
+            }
             // A share token is not a post ID. Keep the validated redirect identity
             // even when the returned page omits its canonical metadata.
             if (pageSource.postId == null) {
