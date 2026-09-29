@@ -12,6 +12,78 @@ class ThreadsPageParserTest {
         </body></html>
     """.trimIndent()
 
+    private fun routePage(rootView: String, canonicalRouteName: String = "") = page("""{
+        "initialRouteInfo":{"route":{
+          "rootView":$rootView,"canonicalRouteName":"$canonicalRouteName"
+        }}
+    }""")
+
+    @Test fun detectsActiveAudienceRestrictionWithUnknownRestrictionReason() {
+        assertTrue(ThreadsPageParser.isAudienceRestricted(routePage("""{
+          "resource":{"__dr":"BarcelonaGeoBlockedErrorRoot.react"},
+          "props":{"title":"This content isn't available to everyone",
+            "description":"It can't be seen by certain audiences.","geoBlockRuleType":null}
+        }""")))
+    }
+
+    @Test fun recognizesActiveEntryPointEvenWhenTitleIsLocalized() {
+        assertTrue(ThreadsPageParser.isAudienceRestricted(routePage("""{
+          "entryPoint":{"__dr":"BarcelonaGeoBlockedErrorRoot.entrypoint"},
+          "props":{"title":"部分使用者無法觀看這則內容"}
+        }""")))
+    }
+
+    @Test fun recognizesActiveCanonicalRestrictionRouteWithEscapedApostrophe() {
+        assertTrue(ThreadsPageParser.isAudienceRestricted(routePage("""{
+          "props":{"title":"This content isn\u0027t available to everyone"}
+        }""", "comet.barcelonawebloggedout.BarcelonaGeoBlockRoute")))
+    }
+
+    @Test fun normalActiveRouteDoesNotBecomeRestrictedBecauseErrorModulesArePreloaded() {
+        val html = page("""{
+          "modules":["BarcelonaGeoBlockedErrorRoot.react","BarcelonaGeoBlockedErrorRoot.entrypoint"],
+          "additional_roots":[{"__dr":"BarcelonaGeoBlockedErrorRoot.react"}],
+          "initialRouteInfo":{"route":{
+            "canonicalRouteName":"comet.barcelonawebloggedout.BarcelonaPostRoute",
+            "rootView":{
+              "resource":{"__dr":"BarcelonaPostRoot.react"},
+              "entryPoint":{"__dr":"BarcelonaPostRoot.entrypoint"},
+              "allResources":[{"__dr":"BarcelonaGeoBlockedErrorRoot.react"}]
+            }
+          }}
+        }""")
+        assertFalse(ThreadsPageParser.isAudienceRestricted(html))
+    }
+
+    @Test fun quotedRestrictionMessageAndModuleNamesInPostTextAreNotAnActiveRestriction() {
+        val html = page("""{"code":"TARGET","caption":{"text":
+          "This content isn't available to everyone: BarcelonaGeoBlockedErrorRoot.react / comet.barcelonawebloggedout.BarcelonaGeoBlockRoute"},
+          "video_url":"https://video.fbcdn.net/own.mp4"
+        }""")
+        assertFalse(ThreadsPageParser.isAudienceRestricted(html))
+        assertEquals("https://video.fbcdn.net/own.mp4", ThreadsPageParser.parse(html, source)?.videoUrl)
+    }
+
+    @Test fun unrelatedRouteMetadataDoesNotOverrideNormalInitialRoute() {
+        val html = page("""{
+          "initialRouteInfo":{"route":{"rootView":{"resource":{"__dr":"BarcelonaPostRoot.react"}}}},
+          "prefetchedRoute":{"rootView":{"resource":{"__dr":"BarcelonaGeoBlockedErrorRoot.react"}},
+            "canonicalRouteName":"comet.barcelonawebloggedout.BarcelonaGeoBlockRoute"}
+        }""")
+        assertFalse(ThreadsPageParser.isAudienceRestricted(html))
+    }
+
+    @Test fun malformedOrUnexpectedRouteDataIsIgnored() {
+        val malformed = """<script type="application/json">{"initialRouteInfo":{"route":
+            "BarcelonaGeoBlockedErrorRoot.react", BROKEN}</script>"""
+        assertFalse(ThreadsPageParser.isAudienceRestricted(malformed))
+        for (json in listOf("null", "[]", """{"initialRouteInfo":null}""",
+            """{"initialRouteInfo":{"route":[]}}""",
+            """{"initialRouteInfo":{"route":{"rootView":"BarcelonaGeoBlockedErrorRoot.react"}}}""")) {
+            assertFalse(ThreadsPageParser.isAudienceRestricted(page(json)))
+        }
+    }
+
     @Test fun selectsRequestedPostOverRecommendationsAndPreservesSignedUrl() {
         val result = ThreadsPageParser.parse(page("""[
           {"code":"RECOMMENDED","video_versions":[{"url":"https://video.fbcdn.net/wrong.mp4"}]},
