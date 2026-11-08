@@ -29,7 +29,7 @@ class IosBridge {
                         val resolved = if (source.platform == VideoPlatform.INSTAGRAM) PageInspector(client).resolveInstagramShare(source) else source
                         EngineService(client, serviceUrl, serviceToken).inspect(resolved)
                     }
-                    else -> PageInspector(client).inspect(source)
+                    else -> PageMediaSizes(client).enrich(PageInspector(client).inspect(source))
                 }
                 val payload = json.encodeToString(IosVideo(details.title, details.source.url, details.source.platform.name,
                     details.qualities.map { IosQuality(it.id, it.label, it.mp3Size?.label, it.container, it.silent,

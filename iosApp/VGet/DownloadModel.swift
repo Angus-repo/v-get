@@ -97,6 +97,7 @@ import VGetShared
     }
 
     func cancel() {
+        guard busy else { return }
         generation = UUID(); request?.cancel(); request = nil; task?.cancel(); task = nil
         busy = false; status = "已取消"; progress = nil
     }

@@ -79,7 +79,7 @@ class FacebookPageParserTest {
         }
         assertEquals(FacebookPageException.Reason.AGE_RESTRICTED, error.reason)
         assertTrue(error.requiresLogin)
-        val message = DownloadErrors.message(error, VideoPlatform.FACEBOOK)
+        val message = error.message.orEmpty()
         assertTrue(message.contains("18+"))
         assertTrue(message.contains("必須登入"))
         assertFalse(message.contains("連線失敗"))

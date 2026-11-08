@@ -1,5 +1,7 @@
 package com.vget.app.network
 
+import kotlinx.serialization.json.JsonObject
+
 import com.vget.app.network.WebUrl.Companion.toHttpUrlOrNull
 import com.fleeksoft.ksoup.Ksoup
 import kotlin.math.roundToInt
