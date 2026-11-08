@@ -59,7 +59,15 @@ jobs:
           xcodebuild -project iosApp/VGet.xcodeproj -scheme VGet
           -destination "platform=iOS Simulator,id=$VGET_SIMULATOR_ID"
           -derivedDataPath iosApp/build -resultBundlePath iosApp/TestResults.xcresult
+          -parallel-testing-enabled NO
           CODE_SIGNING_ALLOWED=NO test
+      - name: Verify app launch and capture simulator screen
+        run: |
+          xcrun simctl bootstatus "$VGET_SIMULATOR_ID" -b
+          xcrun simctl install "$VGET_SIMULATOR_ID" iosApp/build/Build/Products/Debug-iphonesimulator/VGet.app
+          xcrun simctl launch --terminate-running-process "$VGET_SIMULATOR_ID" com.vget.app
+          sleep 3
+          xcrun simctl io "$VGET_SIMULATOR_ID" screenshot iosApp/VGet-simulator.png
       - name: Compile device framework
         run: ./gradlew :shared:linkDebugFrameworkIosArm64 --no-daemon
       - name: Upload simulator app and reports
@@ -70,4 +78,5 @@ jobs:
           path: |
             iosApp/build/Build/Products/Debug-iphonesimulator/VGet.app
             iosApp/TestResults.xcresult
+            iosApp/VGet-simulator.png
             shared/build/reports/tests/
