@@ -176,7 +176,12 @@ def download_video(payload: dict, directory: Path) -> Path:
         if platform not in ('youtube', 'instagram'):
             raise ValueError('Direct sources require selected media')
         chosen = selector(payload.get('selector'))
+        container = payload.get('container', 'mp4')
+        if container not in ('mp4', 'webm', 'mkv'):
+            raise ValueError('Invalid container')
         args = engine_args(url) + ['--no-continue', '-f', chosen, '-o', str(directory / 'media.%(ext)s')]
+        if mode == 'video':
+            args += ['--merge-output-format', container, '--remux-video', container]
         if mode == 'mp3':
             args += ['--extract-audio', '--audio-format', 'mp3', '--audio-quality', '192K']
         subprocess.run(args + ['--', url], capture_output=True, timeout=600, check=True)

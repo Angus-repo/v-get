@@ -24,7 +24,7 @@ class FacebookUrlTest {
     @Test fun rejectsNonFacebookMediaAndCleartext() {
         listOf("https://fbcdn.net.evil.test/video.mp4", "https://evil.test/video.mp4",
             "http://video.xx.fbcdn.net/video.mp4", "https://user@video.xx.fbcdn.net/a.mp4").forEach {
-            assertNull(it, FacebookUrl.mediaUrl(it))
+            assertNull(FacebookUrl.mediaUrl(it), it)
         }
     }
 

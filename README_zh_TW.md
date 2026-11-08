@@ -147,44 +147,21 @@ YouTube／Instagram 依來源資料顯示解析度、幀率及檔案格式；相
 
 ## 專案結構
 
-```
-app/
-├── src/main/
-│   ├── java/com/vget/app/
-│   │   ├── MainActivity.kt              # 主要活動
-│   │   ├── PlayerActivity.kt            # 所選畫質試播與已下載檔案播放
-│   │   ├── network/
-│   │   │   ├── VideoExtractor.kt        # 影片連結提取器
-│   │   │   ├── VideoDownloader.kt       # 直接下載影片
-│   │   │   ├── VideoDownloadService.kt  # 平台分流
-│   │   │   ├── VideoSource.kt           # 網址驗證與正規化
-│   │   │   ├── YtDlpDownloader.kt       # YouTube／Instagram 引擎
-│   │   │   ├── YtDlpMetadataParser.kt   # 畫質、音軌配對與試播串流
-│   │   │   ├── VideoDetails.kt          # 畫質選項與已儲存影片資料
-│   │   │   ├── ThreadsPageParser.kt     # 指定 Threads 貼文解析
-│   │   │   └── VideoStorage.kt          # MediaStore 與舊版儲存
-│   │   └── utils/
-│   │       └── PermissionHelper.kt      # 權限管理工具
-│   ├── res/
-│   │   ├── layout/
-│   │   │   └── activity_main.xml        # 主介面佈局
-│   │   ├── values/
-│   │   │   ├── strings.xml              # 字串資源
-│   │   │   ├── colors.xml               # 顏色定義
-│   │   │   └── themes.xml               # 主題樣式
-│   │   └── xml/
-│   │       ├── backup_rules.xml
-│   │       └── data_extraction_rules.xml
-│   └── AndroidManifest.xml              # 應用程式配置
-├── build.gradle                          # 應用程式建置配置
-└── proguard-rules.pro                    # ProGuard 規則
+```text
+shared/                   # Kotlin Multiplatform core + common regression tests
+  src/commonMain/         # URLs, parsers, quality models, filenames, page inspection
+  src/jvmAndAndroidMain/  # JVM / Android Unicode normalization
+  src/iosMain/            # Darwin HTTP engine and Swift bridge
+app/                      # Existing Android UI, playback, storage and yt-dlp/FFmpeg
+iosApp/                   # SwiftUI app, share extension, native tests, XcodeGen project
+server/                   # Optional authenticated yt-dlp/FFmpeg service for iOS
 ```
 
 ## 開發環境設置
 
 ### 前置要求
 
-- Android Studio Giraffe 或更新版本
+- 支援 AGP 8.7.3／Kotlin 2.2.21 的 Android Studio
 - JDK 17
 - Android SDK API Level 34
 

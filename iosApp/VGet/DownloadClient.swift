@@ -41,6 +41,7 @@ struct DownloadClient {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             var payload: [String: Any] = ["url": video.sourceUrl, "format": mp3 ? "mp3" : "video"]
+            payload["container"] = quality.container
             payload["selector"] = mp3 ? quality.audioFormatSelector : quality.formatSelector
             if quality.formatSelector == nil { payload["directCandidates"] = quality.directCandidates }
             request.httpBody = try JSONSerialization.data(withJSONObject: payload)

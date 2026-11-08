@@ -34,7 +34,7 @@ Requests use `Authorization: Bearer <your-token>`. Redirects from the service ar
 
 - `GET /health`: health response, no source information.
 - `POST /v1/inspect`: `{"url":"https://www.youtube.com/watch?v=abcdefghijk"}`. Returns yt-dlp JSON. YouTube/Instagram only; URLs are validated before invoking the engine.
-- `POST /v1/download`: `{"url":"…","format":"video","selector":"137+140"}`. Downloads exactly the selected format IDs and returns the completed file; no fallback quality selection.
+- `POST /v1/download`: `{"url":"…","format":"video","selector":"137+140","container":"mp4"}`. Downloads exactly the selected format IDs and returns the completed file; no fallback quality selection.
 - MP3: use `"format":"mp3"` and the selected audio format ID as `selector`. For native page sources, send `directCandidates` containing only the selected quality's explicit CDN URLs. The server restricts them to that source's media domains and uses libmp3lame at 192 kbps.
 
 Responses include Content-Length, Content-Type and X-VGet-Extension. The phone picks a collision-safe filename using the page title. Limits: two simultaneous requests, 1 GiB media, 8 MiB metadata, 90 seconds for inspection and 600 seconds for engine/conversion work. The HTTP response begins once the output is ready, so preparation has indeterminate progress. Cancellation stops the phone's transfer; server-side work is bounded by timeout and temporary files are removed afterward.

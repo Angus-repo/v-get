@@ -148,44 +148,21 @@ YouTube/Instagram choices show the reported resolution, frame rate and container
 
 ## Project Structure
 
-```
-app/
-├── src/main/
-│   ├── java/com/vget/app/
-│   │   ├── MainActivity.kt              # Main activity
-│   │   ├── PlayerActivity.kt            # Selected-quality preview and saved-file playback
-│   │   ├── network/
-│   │   │   ├── VideoExtractor.kt        # Video URL extractor
-│   │   │   ├── VideoDownloader.kt       # Progressive downloads
-│   │   │   ├── VideoDownloadService.kt  # Platform routing
-│   │   │   ├── VideoSource.kt           # URL validation and normalization
-│   │   │   ├── YtDlpDownloader.kt       # YouTube/Instagram engine
-│   │   │   ├── YtDlpMetadataParser.kt   # Exact formats, audio pairing and preview streams
-│   │   │   ├── VideoDetails.kt          # Quality choices and saved-video model
-│   │   │   ├── ThreadsPageParser.kt     # Targeted Threads post parsing
-│   │   │   └── VideoStorage.kt          # MediaStore / legacy storage
-│   │   └── utils/
-│   │       └── PermissionHelper.kt      # Permission helper
-│   ├── res/
-│   │   ├── layout/
-│   │   │   └── activity_main.xml        # Primary layout
-│   │   ├── values/
-│   │   │   ├── strings.xml              # String resources
-│   │   │   ├── colors.xml               # Color palette
-│   │   │   └── themes.xml               # Theme definitions
-│   │   └── xml/
-│   │       ├── backup_rules.xml
-│   │       └── data_extraction_rules.xml
-│   └── AndroidManifest.xml              # App configuration
-├── build.gradle                          # Module build script
-└── proguard-rules.pro                    # ProGuard rules
+```text
+shared/                   # Kotlin Multiplatform core + common regression tests
+  src/commonMain/         # URLs, parsers, quality models, filenames, page inspection
+  src/jvmAndAndroidMain/  # JVM / Android Unicode normalization
+  src/iosMain/            # Darwin HTTP engine and Swift bridge
+app/                      # Existing Android UI, playback, storage and yt-dlp/FFmpeg
+iosApp/                   # SwiftUI app, share extension, native tests, XcodeGen project
+server/                   # Optional authenticated yt-dlp/FFmpeg service for iOS
 ```
 
 ## Development Setup
 
 ### Prerequisites
 
-- Android Studio Giraffe or newer
+- Android Studio with AGP 8.7.3 / Kotlin 2.2.21 support
 - JDK 17
 - Android SDK API Level 34
 
