@@ -14,7 +14,7 @@ internal class PlatformPageClient(client: OkHttpClient = OkHttpClient()) {
         .connectTimeout(20, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
     private val requests = SecurePageRequests(this.client)
 
-    suspend fun extractThreads(source: VideoSource): VideoExtractor.VideoInfo {
+    suspend fun extractThreads(source: VideoSource): PageVideoInfo {
         var pageSource = source
         // Public link-preview pages sometimes contain media omitted from the regular HTML.
         for (agent in listOf(USER_AGENT, PREVIEW_USER_AGENT)) {
@@ -48,7 +48,7 @@ internal class PlatformPageClient(client: OkHttpClient = OkHttpClient()) {
             ?: throw IOException("無法解析 Instagram 分享連結，請改用貼文或 Reels 的完整網址")
     }
 
-    suspend fun extractXiaohongshu(source: VideoSource): VideoExtractor.VideoInfo {
+    suspend fun extractXiaohongshu(source: VideoSource): PageVideoInfo {
         val (resolved, html) = fetch(source, USER_AGENT)
         val target = runCatching { VideoSource.parse(resolved) }.getOrNull()
             ?.takeIf { it.platform == VideoPlatform.XIAOHONGSHU && it.postId != null }

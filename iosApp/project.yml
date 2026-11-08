@@ -1,0 +1,79 @@
+name: VGet
+options:
+  bundleIdPrefix: com.vget.app
+  deploymentTarget:
+    iOS: '16.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    CURRENT_PROJECT_VERSION: 15
+    MARKETING_VERSION: 2.0.0
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    GENERATE_INFOPLIST_FILE: YES
+    TARGETED_DEVICE_FAMILY: '1,2'
+targets:
+  VGet:
+    type: application
+    platform: iOS
+    sources: [VGet]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.vget.app
+        FRAMEWORK_SEARCH_PATHS: '$(inherited) $(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)'
+        OTHER_LDFLAGS: '$(inherited) -framework VGetShared'
+    info:
+      path: VGet/Info.plist
+      properties:
+        CFBundleDisplayName: V-Get
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+    entitlements:
+      path: VGet/VGet.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.vget.app]
+    preBuildScripts:
+      - name: Build Kotlin shared framework
+        script: |
+          cd "$SRCROOT/.."
+          ./gradlew :shared:embedAndSignAppleFrameworkForXcode
+        basedOnDependencyAnalysis: false
+    dependencies:
+      - target: VGetShare
+    scheme:
+      testTargets: [VGetTests]
+  VGetShare:
+    type: app-extension
+    platform: iOS
+    sources: [ShareExtension]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.vget.app.share
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+    info:
+      path: ShareExtension/Info.plist
+      properties:
+        CFBundleDisplayName: V-Get
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: '$(PRODUCT_MODULE_NAME).ShareViewController'
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+    entitlements:
+      path: ShareExtension/Share.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.vget.app]
+  VGetTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [VGetTests]
+    dependencies: [{target: VGet}]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.vget.app.tests

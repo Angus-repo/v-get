@@ -10,3 +10,15 @@ signing/
 *.keystore
 *.jks
 keystore.properties
+.kotlin/
+__pycache__/
+*.pyc
+iosApp/*.xcodeproj/
+iosApp/*.xcresult/
+iosApp/VGet/Info.plist
+iosApp/VGet/VGet.entitlements
+iosApp/ShareExtension/Info.plist
+iosApp/ShareExtension/Share.entitlements
+
+build/
+server/.venv/

@@ -21,7 +21,7 @@ class VideoDownloadService(context: Context) {
         }.let { sizes.enrich(it) }
     }
 
-    private fun details(info: VideoExtractor.VideoInfo, source: VideoSource) = VideoDetails(
+    private fun details(info: PageVideoInfo, source: VideoSource) = VideoDetails(
         source, info.title, info.qualities.ifEmpty { listOf(directQuality(info.videoUrl, source)) }
     )
 

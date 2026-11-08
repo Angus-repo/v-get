@@ -1,5 +1,14 @@
 # V-Get - Social Video Downloader
 
+## Kotlin Multiplatform — 2.0.0
+
+V-Get now shares its Kotlin parsing, URL validation, quality models and filenames between Android and iOS. Android retains its existing UI, on-device engine and signing identity. A native SwiftUI iOS app adds downloads, playback, Files export and a share extension. iOS YouTube/Instagram and MP3 require an optional self-hosted service; no service is configured by default.
+
+Build instructions, capability differences and signing requirements: [Android + iOS guide](docs/MULTIPLATFORM.md).
+
+The 1.x notes below describe the established Android implementation.
+
+
 V-Get downloads public Facebook, YouTube, Instagram, Threads and Xiaohongshu/RedNote videos on Android. Paste a video link or the complete share text, or share it directly to V-Get from another app.
 
 ## New in 1.3.9
