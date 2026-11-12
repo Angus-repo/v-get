@@ -21,7 +21,7 @@ internal class MediaSizeClient(client: OkHttpClient = OkHttpClient()) {
         val slots = Semaphore(3)
         video.copy(qualities = video.qualities.map { quality -> async {
             if (quality.fileSize != null || quality.directUrl == null) quality
-            else slots.withPermit { quality.copy(fileSize = sizeOf(quality.directUrl, video.source)) }
+            else slots.withPermit { quality.copy(fileSize = sizeOf(requireNotNull(quality.directUrl), video.source)) }
         } }.awaitAll())
     }
 

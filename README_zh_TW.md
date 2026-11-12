@@ -1,5 +1,14 @@
 # V-Get - 社群影片下載器
 
+## Kotlin Multiplatform — 2.0.0
+
+已將網址驗證、平台解析器、畫質／音軌模型與檔名處理移到 Android、iOS 共用的 Kotlin 模組。Android 保留原有介面、本機下載引擎與固定簽章；新增 SwiftUI iOS App，支援下載、播放、「檔案」匯出及分享擴充功能。
+
+**iOS 的 YouTube／Instagram 與 MP3 功能需要選用的自架下載服務，預設未設定任何服務。** Facebook、Threads、小紅書公開直連影片由手機處理。iOS 預覽會先下載所選畫質，並非串流預覽。
+
+建置步驟、功能差異及 iPhone 簽章需求請見 [Android + iOS 說明](docs/MULTIPLATFORM.md)。以下 1.x 版本紀錄描述既有 Android 功能。
+
+
 下載 Facebook、YouTube、Instagram、Threads 與小紅書公開影片的 Android 應用程式。可貼上影片連結或整段分享文字，也可從其他 App 直接分享至 V-Get。
 
 ## 1.3.9 Threads 閱覽限制提示
@@ -138,44 +147,21 @@ YouTube／Instagram 依來源資料顯示解析度、幀率及檔案格式；相
 
 ## 專案結構
 
-```
-app/
-├── src/main/
-│   ├── java/com/vget/app/
-│   │   ├── MainActivity.kt              # 主要活動
-│   │   ├── PlayerActivity.kt            # 所選畫質試播與已下載檔案播放
-│   │   ├── network/
-│   │   │   ├── VideoExtractor.kt        # 影片連結提取器
-│   │   │   ├── VideoDownloader.kt       # 直接下載影片
-│   │   │   ├── VideoDownloadService.kt  # 平台分流
-│   │   │   ├── VideoSource.kt           # 網址驗證與正規化
-│   │   │   ├── YtDlpDownloader.kt       # YouTube／Instagram 引擎
-│   │   │   ├── YtDlpMetadataParser.kt   # 畫質、音軌配對與試播串流
-│   │   │   ├── VideoDetails.kt          # 畫質選項與已儲存影片資料
-│   │   │   ├── ThreadsPageParser.kt     # 指定 Threads 貼文解析
-│   │   │   └── VideoStorage.kt          # MediaStore 與舊版儲存
-│   │   └── utils/
-│   │       └── PermissionHelper.kt      # 權限管理工具
-│   ├── res/
-│   │   ├── layout/
-│   │   │   └── activity_main.xml        # 主介面佈局
-│   │   ├── values/
-│   │   │   ├── strings.xml              # 字串資源
-│   │   │   ├── colors.xml               # 顏色定義
-│   │   │   └── themes.xml               # 主題樣式
-│   │   └── xml/
-│   │       ├── backup_rules.xml
-│   │       └── data_extraction_rules.xml
-│   └── AndroidManifest.xml              # 應用程式配置
-├── build.gradle                          # 應用程式建置配置
-└── proguard-rules.pro                    # ProGuard 規則
+```text
+shared/                   # Kotlin Multiplatform core + common regression tests
+  src/commonMain/         # URLs, parsers, quality models, filenames, page inspection
+  src/jvmAndAndroidMain/  # JVM / Android Unicode normalization
+  src/iosMain/            # Darwin HTTP engine and Swift bridge
+app/                      # Existing Android UI, playback, storage and yt-dlp/FFmpeg
+iosApp/                   # SwiftUI app, share extension, native tests, XcodeGen project
+server/                   # Optional authenticated yt-dlp/FFmpeg service for iOS
 ```
 
 ## 開發環境設置
 
 ### 前置要求
 
-- Android Studio Giraffe 或更新版本
+- 支援 AGP 8.7.3／Kotlin 2.2.21 的 Android Studio
 - JDK 17
 - Android SDK API Level 34
 

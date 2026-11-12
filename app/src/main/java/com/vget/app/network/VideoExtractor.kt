@@ -5,6 +5,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -24,10 +25,10 @@ class VideoExtractor internal constructor(private val client: OkHttpClient) {
         .build())
 
     /** Adapts Facebook's validated formats to the multi-platform preview/download flow. */
-    suspend fun extractVideoUrl(url: String): Result<VideoInfo> = try {
+    suspend fun extractVideoUrl(url: String): Result<PageVideoInfo> = try {
         val video = extractVideo(url)
         val qualities = FacebookQualityParser.fromVideo(video, VideoSource.parse(video.sourceUrl))
-        Result.success(VideoInfo(qualities.first().directUrl!!, video.sourceUrl, video.title, qualities))
+        Result.success(PageVideoInfo(qualities.first().directUrl!!, video.sourceUrl, video.title, qualities))
     } catch (error: CancellationException) {
         throw error
     } catch (error: Exception) {
@@ -35,7 +36,7 @@ class VideoExtractor internal constructor(private val client: OkHttpClient) {
     }
 
     suspend fun extractVideo(url: String): FacebookVideoInfo {
-        val page = fetchPage(FacebookUrl.parse(url), USER_AGENT)
+        val page = fetchPage(FacebookUrl.parse(url).toString().toHttpUrl(), USER_AGENT)
         try {
             return FacebookPageParser.parse(page.html, page.url.toString())
         } catch (error: FacebookPageException) {
@@ -67,7 +68,7 @@ class VideoExtractor internal constructor(private val client: OkHttpClient) {
                 current = FacebookUrl.parseRedirect(
                     current.resolve(page.redirect)?.toString()
                         ?: throw IOException("Facebook 連結重新導向失敗")
-                )
+                ).toString().toHttpUrl()
                 val redirectedId = FacebookUrl.videoId(current.toString())
                 if (targetId != null && redirectedId != null && redirectedId != targetId) {
                     throw IOException("Facebook 連結導向不同影片，請重新複製原影片的分享連結")
@@ -131,14 +132,6 @@ class VideoExtractor internal constructor(private val client: OkHttpClient) {
 
     private data class Page(val html: String = "", val redirect: String? = null, val statusCode: Int = 200)
     private data class ResolvedPage(val url: HttpUrl, val html: String)
-
-    // Shared result shape retained for the Threads and Xiaohongshu page parsers.
-    data class VideoInfo(
-        val videoUrl: String,
-        val sourceUrl: String,
-        val title: String,
-        val qualities: List<VideoQuality> = emptyList()
-    )
 
     companion object {
         const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
