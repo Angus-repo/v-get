@@ -1,9 +1,11 @@
 package com.vget.app
 
+import android.content.ActivityNotFoundException
 import android.content.ClipboardManager
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.Build
 import android.view.View
@@ -14,7 +16,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.doOnLayout
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
+import com.vget.app.history.AnalysisHistory
 import com.vget.app.databinding.ActivityMainBinding
 import com.vget.app.network.DownloadErrors
 import com.vget.app.network.DownloadFormat
@@ -36,6 +40,7 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var downloads: VideoDownloadService
+    private val historyPreferences by lazy { getSharedPreferences("analysis_history", MODE_PRIVATE) }
     private var activeJob: Job? = null
     private var busy = false
     private var preparedVideo: VideoDetails? = null
@@ -57,6 +62,7 @@ class MainActivity : AppCompatActivity() {
         }
         downloads = VideoDownloadService(applicationContext)
         binding.pasteButton.setOnClickListener { pasteFromClipboard() }
+        binding.historyButton.setOnClickListener { showAnalysisHistory() }
         binding.downloadButton.setOnClickListener { analyzeVideo() }
         binding.downloadSelectedButton.setOnClickListener { requestDownload() }
         binding.downloadMp3Button.setOnClickListener { requestDownload(DownloadFormat.MP3) }
@@ -109,6 +115,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun showAnalysisHistory() {
+        val records = AnalysisHistory.entries(historyPreferences.getString(AnalysisHistory.storageKey, null))
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.analysis_history)
+            .setNegativeButton(android.R.string.cancel, null)
+        if (records.isEmpty()) {
+            dialog.setMessage(R.string.analysis_history_empty)
+        } else {
+            dialog.setItems(records.map { it.title }.toTypedArray()) { _, index ->
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(records[index].pageUrl)))
+                } catch (_: ActivityNotFoundException) {
+                    Toast.makeText(this, R.string.link_open_failed, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        dialog.show()
+    }
+
     private fun invalidateSelection() {
         preparedVideo = null
         pendingDownload = null
@@ -131,6 +156,9 @@ class MainActivity : AppCompatActivity() {
             binding.statusText.text = getString(R.string.analyzing_platform, source.platform.displayName)
             try {
                 val video = downloads.inspect(source)
+                val stored = historyPreferences.getString(AnalysisHistory.storageKey, null)
+                historyPreferences.edit().putString(AnalysisHistory.storageKey,
+                    AnalysisHistory.adding(stored, video.title, source.url)).apply()
                 preparedVideo = video
                 binding.videoTitle.text = video.title
                 binding.qualitySpinner.adapter = QualityAdapter(this@MainActivity, video.qualities) {
@@ -203,6 +231,7 @@ class MainActivity : AppCompatActivity() {
                             binding.progressBar.isIndeterminate = false
                             binding.progressBar.progress = 100
                             binding.progressText.text = "100%"
+                            binding.urlEditText.text?.clear()
                             binding.statusText.setText(R.string.download_complete)
                             showSuccess(getString(R.string.video_saved, progress.video.filePath))
                         }
@@ -251,6 +280,7 @@ class MainActivity : AppCompatActivity() {
         busy = value
         binding.downloadButton.isEnabled = !busy
         binding.pasteButton.isEnabled = !busy
+        binding.historyButton.isEnabled = !busy
         binding.urlInputLayout.isEnabled = !busy
         binding.urlEditText.isEnabled = !busy
         binding.updateEngineButton.isEnabled = !busy

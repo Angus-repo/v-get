@@ -10,6 +10,9 @@
     <string name="supported_platforms">Facebook · YouTube · Instagram · Threads · 小紅書</string>
     <string name="usage_instructions">可直接貼上中文＋網址的整段分享文字。多影片貼文只下載第一支影片。\n標示「約」的容量為估算值。</string>
     <string name="engine_hint">僅支援不需登入的公開影片。首次分析 YouTube／IG 會更新引擎；之後若解析失敗，可手動更新。</string>
+    <string name="analysis_history">分析紀錄</string>
+    <string name="analysis_history_empty">尚無分析紀錄</string>
+    <string name="link_open_failed">找不到可以開啟連結的應用程式</string>
     <string name="analyze_quality">分析畫質</string>
     <string name="choose_quality">選擇畫質</string>
     <string name="quality_ready">請選擇畫質，可先試播再下載。</string>

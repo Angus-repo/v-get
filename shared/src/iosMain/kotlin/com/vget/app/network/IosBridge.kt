@@ -31,7 +31,7 @@ class IosBridge {
                     }
                     else -> PageMediaSizes(client).enrich(PageInspector(client).inspect(source))
                 }
-                val payload = json.encodeToString(IosVideo(details.title, details.source.url, details.source.platform.name,
+                val payload = json.encodeToString(IosVideo(details.title, details.source.url, source.url, details.source.platform.name,
                     details.qualities.map { IosQuality(it.id, it.label, it.mp3Size?.label, it.container, it.silent,
                         it.formatSelector, it.audioFormatSelector, it.directCandidates, it.preview) }))
                 withContext(Dispatchers.Main) { success(payload) }
@@ -51,6 +51,6 @@ class IosRequest internal constructor(private val job: Job) {
     fun cancel() { job.cancel() }
 }
 
-@Serializable private data class IosVideo(val title: String, val sourceUrl: String, val platform: String, val qualities: List<IosQuality>)
+@Serializable private data class IosVideo(val title: String, val sourceUrl: String, val shareUrl: String, val platform: String, val qualities: List<IosQuality>)
 @Serializable private data class IosQuality(val id: String, val label: String, val mp3Size: String?, val container: String,
     val silent: Boolean, val formatSelector: String?, val audioFormatSelector: String?, val directCandidates: List<String>, val preview: VideoPreview?)

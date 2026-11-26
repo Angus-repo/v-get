@@ -28,7 +28,7 @@ No service URL is built in. iOS does not silently send links to a third-party ex
 
 ## Android
 
-JDK 17, Android SDK 34, Gradle 8.14.3, Android Gradle Plugin 8.7.3 and Kotlin 2.2.21 are used. Application ID stays `com.vget.app`; version is 2.0.0 / 15.
+JDK 17, Android SDK 34, Gradle 8.14.3, Android Gradle Plugin 8.7.3 and Kotlin 2.2.21 are used. Application ID stays `com.vget.app`; version is 2.0.1 / 16.
 
 ```sh
 ./gradlew :shared:jvmTest :app:testDebugUnitTest :app:lintDebug
