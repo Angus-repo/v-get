@@ -25,6 +25,18 @@ class AnalysisHistoryTest {
     }
 
     @Test
+    fun displaysTheFacebookCaptionAndKeepsTheStoredTitleAndUrl() {
+        val raw = "94 萬次觀看 · 4.2 萬個心情 | 第一行\n.\n.\n第二行 | 作者"
+        val url = "https://www.facebook.com/share/v/Example/?s=A%2FB+C"
+        val entry = AnalysisHistory.entries(AnalysisHistory.adding(null, raw, url)).single()
+        assertEquals("第一行 第二行 | 作者", entry.displayTitle)
+        assertEquals("Facebook", entry.sourceLabel)
+        assertEquals(raw, entry.title)
+        assertEquals(url, entry.pageUrl)
+        assertEquals("旅行 | 下集", AnalysisEntry("旅行 | 下集", url).displayTitle)
+    }
+
+    @Test
     fun recordingCanResumeIfStorageIsEmptyOrDamaged() {
         val url = "https://www.threads.com/share/Example/"
         for (stored in listOf(null, "", "{")) {

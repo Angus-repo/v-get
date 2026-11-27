@@ -20,7 +20,7 @@ struct ServiceSettings: View {
             Section("使用說明") {
                 Text("下載時請保持 V-Get 在前景。影片存於「檔案」App → 我的 iPhone → V-Get → V-Get。")
                 Text("預覽會先下載所選畫質；播放能力取決於 iOS 支援的編碼。僅支援免登入的公開影片。")
-                Text("V-Get 2.0.1 · Kotlin Multiplatform")
+                Text("V-Get 2.0.2 · Kotlin Multiplatform")
             }
         }.navigationTitle("設定")
     }

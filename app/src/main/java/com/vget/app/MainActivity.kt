@@ -1,11 +1,9 @@
 package com.vget.app
 
-import android.content.ActivityNotFoundException
 import android.content.ClipboardManager
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.os.Build
 import android.view.View
@@ -16,7 +14,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.doOnLayout
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.vget.app.history.AnalysisHistory
 import com.vget.app.databinding.ActivityMainBinding
@@ -40,7 +37,7 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var downloads: VideoDownloadService
-    private val historyPreferences by lazy { getSharedPreferences("analysis_history", MODE_PRIVATE) }
+    private val historyPreferences by lazy { getSharedPreferences(AnalysisHistoryActivity.PREFERENCES, MODE_PRIVATE) }
     private var activeJob: Job? = null
     private var busy = false
     private var preparedVideo: VideoDetails? = null
@@ -62,7 +59,7 @@ class MainActivity : AppCompatActivity() {
         }
         downloads = VideoDownloadService(applicationContext)
         binding.pasteButton.setOnClickListener { pasteFromClipboard() }
-        binding.historyButton.setOnClickListener { showAnalysisHistory() }
+        binding.historyButton.setOnClickListener { startActivity(Intent(this, AnalysisHistoryActivity::class.java)) }
         binding.downloadButton.setOnClickListener { analyzeVideo() }
         binding.downloadSelectedButton.setOnClickListener { requestDownload() }
         binding.downloadMp3Button.setOnClickListener { requestDownload(DownloadFormat.MP3) }
@@ -113,25 +110,6 @@ class MainActivity : AppCompatActivity() {
             binding.urlEditText.setText(text)
             Toast.makeText(this, R.string.link_pasted, Toast.LENGTH_SHORT).show()
         }
-    }
-
-    private fun showAnalysisHistory() {
-        val records = AnalysisHistory.entries(historyPreferences.getString(AnalysisHistory.storageKey, null))
-        val dialog = MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.analysis_history)
-            .setNegativeButton(android.R.string.cancel, null)
-        if (records.isEmpty()) {
-            dialog.setMessage(R.string.analysis_history_empty)
-        } else {
-            dialog.setItems(records.map { it.title }.toTypedArray()) { _, index ->
-                try {
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(records[index].pageUrl)))
-                } catch (_: ActivityNotFoundException) {
-                    Toast.makeText(this, R.string.link_open_failed, Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-        dialog.show()
     }
 
     private fun invalidateSelection() {

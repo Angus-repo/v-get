@@ -24,6 +24,8 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+        <activity android:name=".AnalysisHistoryActivity" android:exported="false"
+            android:label="@string/analysis_history" />
         <activity android:name=".PlayerActivity" android:exported="false" />
         <activity
             android:name=".MainActivity"

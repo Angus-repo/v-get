@@ -14,8 +14,8 @@ android {
         applicationId "com.vget.app"
         minSdk 24
         targetSdk 34
-        versionCode 16
-        versionName "2.0.1"
+        versionCode 17
+        versionName "2.0.2"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
@@ -41,6 +41,7 @@ android {
         viewBinding true
     }
     testOptions {
+        unitTests.includeAndroidResources = true
         unitTests.all {
             systemProperty 'vget.liveUrl', project.findProperty('vgetLiveUrl') ?: ''
             systemProperty 'vget.liveExpectedAccess', project.findProperty('vgetLiveExpectedAccess') ?: ''
@@ -86,6 +87,7 @@ dependencies {
     implementation 'androidx.activity:activity-ktx:1.8.2'
     
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
     testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
     testImplementation 'com.squareup.okhttp3:okhttp-tls:4.12.0'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
