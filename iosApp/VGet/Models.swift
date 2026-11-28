@@ -3,6 +3,7 @@ import Foundation
 struct Video: Decodable {
     let title: String
     let sourceUrl: String
+    let shareUrl: String
     let platform: String
     let qualities: [Quality]
 }

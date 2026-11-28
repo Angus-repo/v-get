@@ -22,6 +22,11 @@ struct ContentView: View {
                             }.disabled(model.busy)
                             Button("分析畫質") { model.inspect() }.disabled(model.busy || model.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
+                        NavigationLink {
+                            AnalysisHistoryView()
+                        } label: {
+                            Label("分析紀錄", systemImage: "clock.arrow.circlepath")
+                        }.disabled(model.busy)
                     }
                     Section("2. 選擇畫質並下載影片") {
                         if let video = model.video {
@@ -52,7 +57,7 @@ struct ContentView: View {
                         if !model.status.isEmpty { Text(model.status).textSelection(.enabled) }
                         if !model.error.isEmpty {
                             Text(model.error).foregroundStyle(.red).textSelection(.enabled)
-                            Button("複製錯誤訊息") { UIPasteboard.general.string = model.error + "\nV-Get 2.0.0 · iOS " + UIDevice.current.systemVersion }
+                            Button("複製錯誤訊息") { UIPasteboard.general.string = model.error + "\nV-Get 2.0.2 · iOS " + UIDevice.current.systemVersion }
                         }
                         if let file = model.saved {
                             ShareLink("分享／儲存下載檔案", item: file)

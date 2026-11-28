@@ -31,6 +31,11 @@ import VGetShared
                 defer { self.busy = false; self.request = nil }
                 do {
                     let result = try JSONDecoder().decode(Video.self, from: Data(json.utf8))
+                    let defaults = UserDefaults.standard
+                    let history = AnalysisHistory.shared
+                    let updated = history.adding(stored: defaults.string(forKey: history.storageKey),
+                                                 title: result.title, pageUrl: result.shareUrl)
+                    defaults.set(updated, forKey: history.storageKey)
                     self.video = result; self.selectedId = result.qualities.first?.id ?? ""
                     self.status = "請選擇畫質"; self.scrollTrigger = UUID()
                 } catch { self.error = "無法讀取影片資料，請重新分析" }
@@ -67,6 +72,7 @@ import VGetShared
                     self.status = "預覽已就緒"
                 } else {
                     self.saved = try self.publish(file, title: video.title, ext: ext)
+                    self.input = ""
                     self.status = "已儲存：\(self.saved!.lastPathComponent)"
                 }
             } catch is CancellationError {

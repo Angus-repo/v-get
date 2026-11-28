@@ -35,6 +35,9 @@
                         android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
                         android:text="@string/analyze_quality" android:paddingStart="12dp" android:paddingEnd="12dp" />
                 </LinearLayout>
+                <com.google.android.material.button.MaterialButton android:id="@+id/historyButton" style="@style/Widget.VGet.Button.Text"
+                    android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/analysis_history"
+                    app:icon="@drawable/ic_history" app:iconGravity="textStart" app:iconTint="@color/action_text" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
         <com.google.android.material.card.MaterialCardView android:id="@+id/qualityCard" style="@style/Widget.VGet.Card"

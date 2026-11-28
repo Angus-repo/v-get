@@ -15,6 +15,7 @@ import androidx.core.view.doOnLayout
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
+import com.vget.app.history.AnalysisHistory
 import com.vget.app.databinding.ActivityMainBinding
 import com.vget.app.network.DownloadErrors
 import com.vget.app.network.DownloadFormat
@@ -36,6 +37,7 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var downloads: VideoDownloadService
+    private val historyPreferences by lazy { getSharedPreferences(AnalysisHistoryActivity.PREFERENCES, MODE_PRIVATE) }
     private var activeJob: Job? = null
     private var busy = false
     private var preparedVideo: VideoDetails? = null
@@ -57,6 +59,7 @@ class MainActivity : AppCompatActivity() {
         }
         downloads = VideoDownloadService(applicationContext)
         binding.pasteButton.setOnClickListener { pasteFromClipboard() }
+        binding.historyButton.setOnClickListener { startActivity(Intent(this, AnalysisHistoryActivity::class.java)) }
         binding.downloadButton.setOnClickListener { analyzeVideo() }
         binding.downloadSelectedButton.setOnClickListener { requestDownload() }
         binding.downloadMp3Button.setOnClickListener { requestDownload(DownloadFormat.MP3) }
@@ -131,6 +134,9 @@ class MainActivity : AppCompatActivity() {
             binding.statusText.text = getString(R.string.analyzing_platform, source.platform.displayName)
             try {
                 val video = downloads.inspect(source)
+                val stored = historyPreferences.getString(AnalysisHistory.storageKey, null)
+                historyPreferences.edit().putString(AnalysisHistory.storageKey,
+                    AnalysisHistory.adding(stored, video.title, source.url)).apply()
                 preparedVideo = video
                 binding.videoTitle.text = video.title
                 binding.qualitySpinner.adapter = QualityAdapter(this@MainActivity, video.qualities) {
@@ -203,6 +209,7 @@ class MainActivity : AppCompatActivity() {
                             binding.progressBar.isIndeterminate = false
                             binding.progressBar.progress = 100
                             binding.progressText.text = "100%"
+                            binding.urlEditText.text?.clear()
                             binding.statusText.setText(R.string.download_complete)
                             showSuccess(getString(R.string.video_saved, progress.video.filePath))
                         }
@@ -251,6 +258,7 @@ class MainActivity : AppCompatActivity() {
         busy = value
         binding.downloadButton.isEnabled = !busy
         binding.pasteButton.isEnabled = !busy
+        binding.historyButton.isEnabled = !busy
         binding.urlInputLayout.isEnabled = !busy
         binding.urlEditText.isEnabled = !busy
         binding.updateEngineButton.isEnabled = !busy
